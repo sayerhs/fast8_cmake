@@ -1,5 +1,5 @@
 
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.3.2)
 project(FAST8 Fortran C CXX)
 
 # Set default installation dir
@@ -31,7 +31,24 @@ if (LIB_LOAD)
 else (LIB_LOAD)
   add_definitions(-DNO_LibLoad)
 endif (LIB_LOAD)
-  
+
+set (FAST_SUBDIRS NWTC_Library InflowWind AeroDyn14 AeroDyn ServoDyn
+  ElastoDyn BeamDyn SubDyn FEAMooring IceDyn IceFloe MAP MAP/Mapp
+  MoorDyn HydroDyn OpenFOAM OrcaFlex)
+set (REG_INCLUDES "-I" "${CMAKE_SOURCE_DIR}/FAST" )
+foreach(IDIR IN ITEMS ${FAST_SUBDIRS})
+  list(APPEND REG_INCLUDES "-I"  "${CMAKE_SOURCE_DIR}/${IDIR}")
+endforeach(IDIR IN LISTS ${FAST_SUBDIRS})
+
+function (generate_f90types regfile outfile)
+  get_filename_component(input ${regfile} ABSOLUTE)
+  get_filename_component(output ${outfile} ABSOLUTE)
+  add_custom_command(
+    OUTPUT ${output}
+    DEPENDS fast_registry ${input}
+    COMMAND ${CMAKE_BINARY_DIR}/Registry/fast_registry ${input} ${REG_INCLUDES} ${ARGN} -O ${CMAKE_CURRENT_SOURCE_DIR})    
+  set_source_files_properties(${output} PROPERTIES GENERATED TRUE)
+endfunction (generate_f90types input)
 
 # Force free-form compilation 
 get_filename_component(FCNAME ${CMAKE_Fortran_COMPILER} NAME)
@@ -58,6 +75,9 @@ add_subdirectory(IceFloe)
 add_subdirectory(MAP)
 add_subdirectory(MoorDyn)
 add_subdirectory(HydroDyn)
+add_subdirectory(OpenFOAM)
+add_subdirectory(OrcaFlex)
+add_subdirectory(FAST)
 
 # FIXME: OpenFOAM and OrcaFlex types include FAST_Types and FAST_Types
 # requires OpenFOAM_Types and OrcaFlex_Types. Include them together
