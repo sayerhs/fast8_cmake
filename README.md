@@ -9,15 +9,21 @@ download portal.
 
 ## Installation instructions
 
-1. Close the repository 
+```
+git clone <repository_url> fast8 # Clone from public repo
+cd fast8/build                   # Change into the build directory 
+cmake ../src                     # Or ccmake ../src for GUI configuration
+make                             # Build sources
+make install                     # Optionally install 
 
 ```
-git clone <repository_url>
-cd fast8/build
-cmake ../src  # Or ccmake ../src for GUI configuration
-make
 
-```
+## Current CMake options
+
+* `DOUBLE_PRECISION` - Enable/disable `-DDOUBLE_PRECISION` flag
+* `BUILD_SHARED_LIBS` - Enable/disable building shared libraries
+* `LIB_LOAD` - Enable/disable OrcaFlex DLL loading
+* `CMAKE_INSTALL_PREFIX` - Set desired installation directory
 
 ## License information
 
