@@ -7,7 +7,7 @@ formatting has been rearranged slightly, but otherwise no source files
 have been modified from the base source downloadable at the NWTC
 download portal.
 
-# Installation instructions
+## Installation instructions
 
 1. Close the repository 
 
@@ -19,11 +19,11 @@ make
 
 ```
 
-# License information
+## License information
 
 Please see `license.txt` and `Disclaimer.txt` for more information.
 
-# Documentation and test cases
+## Documentation and test cases
 
 Please consult the official NWTC portal for the information.
 
