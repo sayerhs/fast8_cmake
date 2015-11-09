@@ -2,6 +2,12 @@
 cmake_minimum_required(VERSION 3.3.2)
 project(FAST8 Fortran C CXX)
 
+# Set default installation dir
+get_filename_component(default_install
+  "${CMAKE_SOURCE_DIR}/../install" ABSOLUTE)
+set(CMAKE_INSTALL_PREFIX ${default_install} CACHE STRING
+  "Choose installation directory; default fast8/install" FORCE)
+
 # Check for BLAS and LAPACK libraries
 find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
@@ -23,7 +29,7 @@ if (LIB_LOAD)
   add_definitions(-DLibLoad)
 else (LIB_LOAD)
   add_definitions(-DNO_LibLoad)
-endif (NO_LIB_LOAD)
+endif (LIB_LOAD)
   
 
 # Force free-form compilation 
@@ -34,9 +40,7 @@ elseif (FCNAME MATCHES "ifort.*")
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free")
 endif (FCNAME MATCHES "gfortran.*")
 
-
-
-
+# Include compilation rules for subdirectories
 add_subdirectory(Registry)
 
 add_subdirectory(NWTC_Library)
@@ -66,7 +70,16 @@ add_library(fast8lib SHARED
   OrcaFlex/OrcaFlexInterface.f90)
 add_executable(fast8 FAST/FAST_Prog.f90)
 
-target_link_libraries(fast8lib nwtclibs inflowwind aerodyn aerodyn14 servodyn
-                      elastodyn beamdyn subdyn feamooring icedyn icefloe
-                      map_fast mapcpp moordyn hydrodyn)
+target_link_libraries(fast8lib nwtclibs inflowwind aerodyn aerodyn14
+  servodyn elastodyn beamdyn subdyn feamooring icedyn icefloe map_fast
+  mapcpp moordyn hydrodyn)
+
 target_link_libraries(fast8 fast8lib)
+
+install(TARGETS fast8 fast8lib
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib)
+
+
+include(CPack)
