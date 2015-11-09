@@ -1,5 +1,5 @@
 
-add_library(inflowwind SHARED IfW_BladedFFWind.f90
+add_library(inflowwind  IfW_BladedFFWind.f90
             IfW_BladedFFWind_Types.f90 IfW_HAWCWind.f90
             IfW_HAWCWind_Types.f90 IfW_TSFFWind.f90
             IfW_TSFFWind_Types.f90 IfW_UniformWind.f90

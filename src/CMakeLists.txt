@@ -7,6 +7,7 @@ get_filename_component(default_install
   "${CMAKE_SOURCE_DIR}/../install" ABSOLUTE)
 set(CMAKE_INSTALL_PREFIX ${default_install} CACHE STRING
   "Choose installation directory; default fast8/install" FORCE)
+option(BUILD_SHARED_LIBS "Enabled building shared libraries" on)
 
 # Check for BLAS and LAPACK libraries
 find_package(BLAS REQUIRED)
@@ -58,8 +59,11 @@ add_subdirectory(MAP)
 add_subdirectory(MoorDyn)
 add_subdirectory(HydroDyn)
 
-
-add_library(fast8lib SHARED
+# FIXME: OpenFOAM and OrcaFlex types include FAST_Types and FAST_Types
+# requires OpenFOAM_Types and OrcaFlex_Types. Include them together
+# for now so that CMake resolver can figure out the right ordering of
+# the compilation.
+add_library(fast8lib 
   FAST/FAST_Mods.f90
   FAST/FAST_Prog.f90
   FAST/FAST_Subs.f90

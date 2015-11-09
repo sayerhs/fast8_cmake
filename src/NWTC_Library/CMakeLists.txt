@@ -21,5 +21,9 @@ elseif (WIN32)
   endif (FCNAME MATCHES "gfortran.*")
 endif (APPLE OR UNIX)
 
-add_library(nwtclibs SHARED ${NWTCLIBS_SOURCES})
+add_library(nwtclibs  ${NWTCLIBS_SOURCES})
 target_link_libraries(nwtclibs ${LAPACK_LIBRARIES})
+
+install(TARGETS nwtclibs
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib)

@@ -1,5 +1,5 @@
 
-add_library(fast8lib SHARED FAST_Mods.f90 FAST_Subs.f90 FAST_Types.f90)
+add_library(fast8lib  FAST_Mods.f90 FAST_Subs.f90 FAST_Types.f90)
 
 add_executable(fast8 FAST_Prog.f90)
 
