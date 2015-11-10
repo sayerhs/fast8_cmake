@@ -32,6 +32,13 @@ else (LIB_LOAD)
   add_definitions(-DNO_LibLoad)
 endif (LIB_LOAD)
 
+#
+# Logic for automatically generating *_Types.f90 files from the
+# registry information.
+#
+# FAST_SUBIRS - the directories to include
+# REG_INCLUDES - The actual includes "-I <DIR>" string passed to the command
+#
 set (FAST_SUBDIRS NWTC_Library InflowWind AeroDyn14 AeroDyn ServoDyn
   ElastoDyn BeamDyn SubDyn FEAMooring IceDyn IceFloe MAP MAP/Mapp
   MoorDyn HydroDyn OpenFOAM OrcaFlex)
@@ -40,22 +47,25 @@ foreach(IDIR IN ITEMS ${FAST_SUBDIRS})
   list(APPEND REG_INCLUDES "-I"  "${CMAKE_SOURCE_DIR}/${IDIR}")
 endforeach(IDIR IN LISTS ${FAST_SUBDIRS})
 
+#
+# Wrapper to autogenerate *_Types.f90
+#    Usage: generate_f90types(BeamDyn_Registry.txt BeamDyn_Types.f90)
+# 
 function (generate_f90types regfile outfile)
   get_filename_component(input ${regfile} ABSOLUTE)
-  get_filename_component(output ${outfile} ABSOLUTE)
+  get_filename_component(output_base ${outfile} NAME)
+  set(output "${CMAKE_CURRENT_BINARY_DIR}/${output_base}")
   add_custom_command(
-    OUTPUT ${output}
+    OUTPUT ${output} 
     DEPENDS fast_registry ${input}
-    COMMAND ${CMAKE_BINARY_DIR}/Registry/fast_registry ${input} ${REG_INCLUDES} ${ARGN} -O ${CMAKE_CURRENT_SOURCE_DIR})    
+    COMMAND ${CMAKE_BINARY_DIR}/Registry/fast_registry ${input} ${REG_INCLUDES} ${ARGN})
   set_source_files_properties(${output} PROPERTIES GENERATED TRUE)
-endfunction (generate_f90types input)
+endfunction (generate_f90types regfile outfile)
 
 # Force free-form compilation 
 get_filename_component(FCNAME ${CMAKE_Fortran_COMPILER} NAME)
 if (FCNAME MATCHES "gfortran.*")
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none")
-elseif (FCNAME MATCHES "ifort.*")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free")
 endif (FCNAME MATCHES "gfortran.*")
 
 # Include compilation rules for subdirectories
@@ -75,35 +85,9 @@ add_subdirectory(IceFloe)
 add_subdirectory(MAP)
 add_subdirectory(MoorDyn)
 add_subdirectory(HydroDyn)
-add_subdirectory(OpenFOAM)
-add_subdirectory(OrcaFlex)
+# add_subdirectory(OpenFOAM)
+# add_subdirectory(OrcaFlex)
 add_subdirectory(FAST)
-
-# FIXME: OpenFOAM and OrcaFlex types include FAST_Types and FAST_Types
-# requires OpenFOAM_Types and OrcaFlex_Types. Include them together
-# for now so that CMake resolver can figure out the right ordering of
-# the compilation.
-add_library(fast8lib 
-  FAST/FAST_Mods.f90
-  FAST/FAST_Prog.f90
-  FAST/FAST_Subs.f90
-  FAST/FAST_Types.f90
-  OpenFOAM/OpenFOAM.f90
-  OpenFOAM/OpenFOAM_Types.f90
-  OrcaFlex/OrcaFlexInterface_Types.f90
-  OrcaFlex/OrcaFlexInterface.f90)
-add_executable(fast8 FAST/FAST_Prog.f90)
-
-target_link_libraries(fast8lib nwtclibs inflowwind aerodyn aerodyn14
-  servodyn elastodyn beamdyn subdyn feamooring icedyn icefloe map_fast
-  mapcpp moordyn hydrodyn)
-
-target_link_libraries(fast8 fast8lib)
-
-install(TARGETS fast8 fast8lib
-  RUNTIME DESTINATION bin
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib)
 
 
 include(CPack)

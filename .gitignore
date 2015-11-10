@@ -8,5 +8,3 @@ install_manifest.txt
 *.o
 build/**
 install/**
-*_Types.f90
-*_Types.h

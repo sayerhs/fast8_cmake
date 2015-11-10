@@ -1,11 +1,11 @@
 
 generate_f90types(InflowWind.txt InflowWind_Types.f90)
 generate_f90types(Lidar.txt Lidar_Types.f90)
-generate_f90types(IfW_BladedFFWind.txt IfW_BladeFFWind_Types.f90 -noextrap)
+generate_f90types(IfW_BladedFFWind.txt IfW_BladedFFWind_Types.f90 -noextrap)
 generate_f90types(IfW_HAWCWind.txt IfW_HAWCWind_Types.f90 -noextrap)
 generate_f90types(IfW_TSFFWind.txt IfW_TSFFWind_Types.f90 -noextrap)
 generate_f90types(IfW_UniformWind.txt IfW_UniformWind_Types.f90 -noextrap)
-generate_f90types(IfW_UserWind.txt IfW_UserWind_ypes.f90 -noextrap)
+generate_f90types(IfW_UserWind.txt IfW_UserWind_Types.f90 -noextrap)
 
 add_library(inflowwind  IfW_BladedFFWind.f90
             IfW_BladedFFWind_Types.f90 IfW_HAWCWind.f90
