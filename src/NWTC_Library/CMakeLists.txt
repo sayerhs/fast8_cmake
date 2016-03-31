@@ -22,7 +22,7 @@ elseif (WIN32)
 endif (APPLE OR UNIX)
 
 add_library(nwtclibs  ${NWTCLIBS_SOURCES})
-target_link_libraries(nwtclibs ${LAPACK_LIBRARIES})
+target_link_libraries(nwtclibs ${LAPACK_LIBRARIES} ${CMAKE_DL_LIBS})
 
 install(TARGETS nwtclibs
   LIBRARY DESTINATION lib
