@@ -7,15 +7,16 @@ get_filename_component(default_install
   "${CMAKE_SOURCE_DIR}/../install" ABSOLUTE)
 set(CMAKE_INSTALL_PREFIX ${default_install} CACHE STRING
   "Choose installation directory; default fast8/install" FORCE)
-option(BUILD_SHARED_LIBS "Enabled building shared libraries" on)
+option(BUILD_SHARED_LIBS "Enabled building shared libraries" off)
 
 # Check for BLAS and LAPACK libraries
 find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
 
 # Set user selectable option to turn on/off double precision 
-option(DOUBLE_PRECISION "Set single or double precision" off)
-option(LIB_LOAD "Control library loading" off)
+option(DOUBLE_PRECISION "Set single or double precision" on)
+option(LIB_LOAD "OrcaFlex library loading" off)
+option(USE_DLL_INTERFACE "Use Controller DLLS" on)
 # By default we set the preprocessor and position independent code
 # directives
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -fPIC")
@@ -26,6 +27,9 @@ include_directories( ${CMAKE_Fortran_MODULE_DIRECTORY} )
 if (DOUBLE_PRECISION)
   add_definitions(-DDOUBLE_PRECISION)
 endif (DOUBLE_PRECISION)
+if (USE_DLL_INTERFACE)
+  add_definitions(-DUSE_DLL_INTERFACE)
+endif(USE_DLL_INTERFACE)
 if (LIB_LOAD)
   add_definitions(-DLibLoad)
 else (LIB_LOAD)
