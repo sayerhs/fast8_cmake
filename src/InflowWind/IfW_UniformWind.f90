@@ -1,4 +1,3 @@
-MODULE IfW_UniformWind
 !> This module contains all the data and procedures that define uniform wind files (formerly known as
 !! hub-height files). This could more accurately be called a point wind file since the wind speed at
 !! any point is calculated by shear applied to the point where wind is defined.  It is basically uniform
@@ -16,11 +15,12 @@ MODULE IfW_UniformWind
 !!              (7) Vertical linear shear       (VLinShr) [-]
 !!              (8) Gust (horizontal) velocity  (VGust)   [m/s]
 !!
-!! The horizontal wind speed at (X, Y, Z) is then calculated using the interpolated columns by
-!!   Vh = V * ( Z/RefHt ) ** VShr                                        ! power-law wind shear
-!!      + V * HLinShr/RefWid * ( Y * COS(Delta) + X * SIN(Delta) )       ! horizontal linear shear
-!!      + V * VLinShr/RefWid * ( Z-RefHt )                               ! vertical linear shear
-!!      + VGust                                                          ! gust speed
+!! The horizontal wind speed at (X, Y, Z) is then calculated using the interpolated columns by  \n
+!!      Vh = V * ( Z/RefHt ) ** VShr                                        ! power-law wind shear
+!!         \n + V * HLinShr/RefWid * ( Y * COS(Delta) + X * SIN(Delta) )       ! horizontal linear shear
+!!         \n + V * VLinShr/RefWid * ( Z-RefHt )                               ! vertical linear shear
+!!         \n + VGust                                                          ! gust speed 
+MODULE IfW_UniformWind
 !----------------------------------------------------------------------------------------------------
 !! Feb 2013    v2.00.00         A. Platt
 !!    -- updated to the new framework
@@ -32,7 +32,7 @@ MODULE IfW_UniformWind
 !!
 !**********************************************************************************************************************************
 ! LICENSING
-! Copyright (C) 2015  National Renewable Energy Laboratory
+! Copyright (C) 2015-2106  National Renewable Energy Laboratory
 !
 !    This file is part of InflowWind.
 !
@@ -60,7 +60,7 @@ MODULE IfW_UniformWind
    IMPLICIT                                  NONE
    PRIVATE
 
-   TYPE(ProgDesc),   PARAMETER               :: IfW_UniformWind_Ver = ProgDesc( 'IfW_UniformWind', 'v2.02.00', '02-Apr-2015' )
+   TYPE(ProgDesc),   PARAMETER               :: IfW_UniformWind_Ver = ProgDesc( 'IfW_UniformWind', 'v2.03.00', '14-Dec-2015' )
 
    PUBLIC                                    :: IfW_UniformWind_Init
    PUBLIC                                    :: IfW_UniformWind_End
@@ -80,7 +80,7 @@ CONTAINS
 !!          the PositionXYZ array.
 !! @date    16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
 !----------------------------------------------------------------------------------------------------
-SUBROUTINE IfW_UniformWind_Init(InitData, PositionXYZ, ParamData, OtherStates, OutData, Interval, InitOutData, ErrStat, ErrMsg)
+SUBROUTINE IfW_UniformWind_Init(InitData, ParamData, MiscVars, Interval, InitOutData, ErrStat, ErrMsg)
 
 
    IMPLICIT                                                       NONE
@@ -89,20 +89,18 @@ SUBROUTINE IfW_UniformWind_Init(InitData, PositionXYZ, ParamData, OtherStates, O
 
 
       ! Passed Variables
-   TYPE(IfW_UniformWind_InitInputType),         INTENT(IN   )  :: InitData          ! Input data for initialization
-   REAL(ReKi),       ALLOCATABLE,               INTENT(INOUT)  :: PositionXYZ(:,:)  ! Array of positions to find wind speed at
-   TYPE(IfW_UniformWind_ParameterType),         INTENT(  OUT)  :: ParamData         ! Parameters
-   TYPE(IfW_UniformWind_OtherStateType),        INTENT(  OUT)  :: OtherStates       ! Other State data   (storage for the main data)
-   TYPE(IfW_UniformWind_OutputType),            INTENT(  OUT)  :: OutData           ! Initial output
-   TYPE(IfW_UniformWind_InitOutputType),        INTENT(  OUT)  :: InitOutData       ! Initial output
+   TYPE(IfW_UniformWind_InitInputType),         INTENT(IN   )  :: InitData          !< Input data for initialization
+   TYPE(IfW_UniformWind_ParameterType),         INTENT(  OUT)  :: ParamData         !< Parameters
+   TYPE(IfW_UniformWind_MiscVarType),           INTENT(  OUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
+   TYPE(IfW_UniformWind_InitOutputType),        INTENT(  OUT)  :: InitOutData       !< Initial output
 
-   REAL(DbKi),                                  INTENT(IN   )  :: Interval          ! We don't change this.
+   REAL(DbKi),                                  INTENT(IN   )  :: Interval          !< We don't change this.
 
 
 
       ! Error handling
-   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           ! determines if an error has been encountered
-   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            ! A message about the error
+   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            !< A message about the error
 
       ! local variables
 
@@ -129,28 +127,6 @@ SUBROUTINE IfW_UniformWind_Init(InitData, PositionXYZ, ParamData, OtherStates, O
    ErrStat     = ErrID_None
    ErrMsg      = ""
 
-   TmpErrStat  = ErrID_None
-   TmpErrMsg   = ""
-
-
-      ! Check that the PositionXYZ array has been allocated.  The OutData%Velocity does not need to be allocated yet.
-   IF ( .NOT. ALLOCATED(PositionXYZ) ) THEN
-      CALL SetErrStat(ErrID_Fatal,' Programming error: The PositionXYZ array has not been allocated prior to call to '//RoutineName//'.',   &
-                  ErrStat,ErrMsg,'')
-   ENDIF
-
-   IF ( ErrStat >= AbortErrLev ) RETURN
-
-
-      ! Check that the PositionXYZ and OutData%Velocity arrays are the same size.
-   IF ( ALLOCATED(OutData%Velocity) .AND. & 
-        ( (SIZE( PositionXYZ, DIM = 1 ) /= SIZE( OutData%Velocity, DIM = 1 )) .OR. &
-          (SIZE( PositionXYZ, DIM = 2 ) /= SIZE( OutData%Velocity, DIM = 2 ))      )  ) THEN
-      CALL SetErrStat(ErrID_Fatal,' Programming error: Different number of XYZ coordinates and expected output velocities.', &
-                  ErrStat,ErrMsg,RoutineName)
-      RETURN
-   ENDIF
-
 
 
 
@@ -158,7 +134,7 @@ SUBROUTINE IfW_UniformWind_Init(InitData, PositionXYZ, ParamData, OtherStates, O
       ! Check that it's not already initialized
       !-------------------------------------------------------------------------------------------------
 
-   IF ( OtherStates%TimeIndex /= 0 ) THEN
+   IF ( MiscVars%TimeIndex /= 0 ) THEN
       CALL SetErrStat(ErrID_Warn,' UniformWind has already been initialized.',ErrStat,ErrMsg,RoutineName)
       RETURN
    END IF
@@ -487,7 +463,7 @@ SUBROUTINE IfW_UniformWind_Init(InitData, PositionXYZ, ParamData, OtherStates, O
       ! and initialize the spatial scaling for the wind calculations
       !-------------------------------------------------------------------------------------------------
 
-   OtherStates%TimeIndex   = 1
+   MiscVars%TimeIndex   = 1
 
 
       !-------------------------------------------------------------------------------------------------
@@ -511,7 +487,7 @@ END SUBROUTINE IfW_UniformWind_Init
 !!          an array of points is passed in. 
 !! @date  16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
 !-------------------------------------------------------------------------------------------------
-SUBROUTINE IfW_UniformWind_CalcOutput(Time, PositionXYZ, ParamData, OtherStates, OutData, ErrStat, ErrMsg)
+SUBROUTINE IfW_UniformWind_CalcOutput(Time, PositionXYZ, ParamData, OutData, MiscVars, ErrStat, ErrMsg)
 
    IMPLICIT                                                       NONE
 
@@ -519,15 +495,15 @@ SUBROUTINE IfW_UniformWind_CalcOutput(Time, PositionXYZ, ParamData, OtherStates,
 
 
       ! Passed Variables
-   REAL(DbKi),                                  INTENT(IN   )  :: Time              ! time from the start of the simulation
-   REAL(ReKi), ALLOCATABLE,                     INTENT(IN   )  :: PositionXYZ(:,:)  ! Array of XYZ coordinates, 3xN
-   TYPE(IfW_UniformWind_ParameterType),         INTENT(IN   )  :: ParamData         ! Parameters
-   TYPE(IfW_UniformWind_OtherStateType),        INTENT(INOUT)  :: OtherStates       ! Other State data   (storage for the main data)
-   TYPE(IfW_UniformWind_OutputType),            INTENT(INOUT)  :: OutData           ! Initial output     (Set to INOUT so that array does not get deallocated)
+   REAL(DbKi),                                  INTENT(IN   )  :: Time              !< time from the start of the simulation
+   REAL(ReKi), ALLOCATABLE,                     INTENT(IN   )  :: PositionXYZ(:,:)  !< Array of XYZ coordinates, 3xN
+   TYPE(IfW_UniformWind_ParameterType),         INTENT(IN   )  :: ParamData         !< Parameters
+   TYPE(IfW_UniformWind_OutputType),            INTENT(INOUT)  :: OutData           !< Output at Time    (Set to INOUT so that array does not get deallocated)
+   TYPE(IfW_UniformWind_MiscVarType),           INTENT(INOUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
       ! Error handling
-   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           ! error status
-   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            ! The error message
+   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           !< error status
+   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            !< The error message
 
 
       ! local variables
@@ -572,7 +548,7 @@ SUBROUTINE IfW_UniformWind_CalcOutput(Time, PositionXYZ, ParamData, OtherStates,
    DO PointNum = 1, NumPoints
 
          ! Calculate the velocity for the position
-      OutData%Velocity(:,PointNum) = GetWindSpeed(Time, PositionXYZ(:,PointNum), ParamData, OtherStates, TmpErrStat, TmpErrMsg)
+      OutData%Velocity(:,PointNum) = GetWindSpeed(Time, PositionXYZ(:,PointNum), ParamData, MiscVars, TmpErrStat, TmpErrMsg)
 
          ! Error handling
       CALL SetErrStat(TmpErrStat,TmpErrMsg,ErrStat,ErrMsg,RoutineName)
@@ -590,32 +566,30 @@ SUBROUTINE IfW_UniformWind_CalcOutput(Time, PositionXYZ, ParamData, OtherStates,
 
 
       ! DiskVel term -- this represents the average across the disk -- sort of.  This changes for AeroDyn 15
-   OutData%DiskVel   =  WindInf_ADhack_diskVel(Time, ParamData, OtherStates, TmpErrStat, TmpErrMsg)
+   OutData%DiskVel   =  WindInf_ADhack_diskVel(Time, ParamData, MiscVars, TmpErrStat, TmpErrMsg)
 
    RETURN
 
 CONTAINS
    !+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
-   FUNCTION GetWindSpeed(Time,   InputPosition,   ParamData,     OtherStates,   ErrStat, ErrMsg)
-   !----------------------------------------------------------------------------------------------------
-   ! This subroutine linearly interpolates the columns in the uniform input file to get the values for
-   ! the requested time, then uses the interpolated values to calclate the wind speed at a point
-   ! in space represented by InputPosition.
-   !
-   !  16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
-   !----------------------------------------------------------------------------------------------------
+   !> This subroutine linearly interpolates the columns in the uniform input file to get the values for
+   !! the requested time, then uses the interpolated values to calclate the wind speed at a point
+   !! in space represented by InputPosition.
+   !!
+   !!  16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
+   FUNCTION GetWindSpeed(Time,   InputPosition,   ParamData,     MiscVars,   ErrStat, ErrMsg)
 
          ! Passed Variables
-      REAL(DbKi),                            INTENT(IN   )  :: Time              ! time from the start of the simulation
-      REAL(ReKi),                            INTENT(IN   )  :: InputPosition(3)  ! input information: positions X,Y,Z
-      TYPE(IfW_UniformWind_ParameterType),   INTENT(IN   )  :: ParamData         ! Parameters
-      TYPE(IfW_UniformWind_OtherStateType),  INTENT(INOUT)  :: OtherStates       ! Other State data   (storage for the main data)
+      REAL(DbKi),                            INTENT(IN   )  :: Time              !< time from the start of the simulation
+      REAL(ReKi),                            INTENT(IN   )  :: InputPosition(3)  !< input information: positions X,Y,Z
+      TYPE(IfW_UniformWind_ParameterType),   INTENT(IN   )  :: ParamData         !< Parameters
+      TYPE(IfW_UniformWind_MiscVarType),     INTENT(INOUT)  :: MiscVars          !< Other State data   (storage for the main data)
 
-      INTEGER(IntKi),                        INTENT(  OUT)  :: ErrStat           ! error status
-      CHARACTER(*),                          INTENT(  OUT)  :: ErrMsg            ! The error message
+      INTEGER(IntKi),                        INTENT(  OUT)  :: ErrStat           !< error status
+      CHARACTER(*),                          INTENT(  OUT)  :: ErrMsg            !< The error message
 
          ! Returned variables
-      REAL(ReKi)                                            :: GetWindSpeed(3)   ! return velocities (U,V,W)
+      REAL(ReKi)                                            :: GetWindSpeed(3)   !< return velocities (U,V,W)
 
 
          ! Local Variables
@@ -639,7 +613,7 @@ CONTAINS
       ! verify the module was initialized first
       !-------------------------------------------------------------------------------------------------
 
-      IF ( OtherStates%TimeIndex == 0 ) THEN
+      IF ( MiscVars%TimeIndex == 0 ) THEN
          CALL SetErrStat(ErrID_Fatal,' Error: Call UniformWind_Init() before getting wind speed.',ErrStat,ErrMsg,'')
          RETURN
       END IF
@@ -652,7 +626,7 @@ CONTAINS
          ! Let's check the limits.
       IF ( Time <= ParamData%Tdata(1) .OR. ParamData%NumDataLines == 1 )  THEN
 
-         OtherStates%TimeIndex      = 1
+         MiscVars%TimeIndex      = 1
          V_tmp         = ParamData%V      (1)
          Delta_tmp     = ParamData%Delta  (1)
          VZ_tmp        = ParamData%VZ     (1)
@@ -664,7 +638,7 @@ CONTAINS
 
       ELSE IF ( Time >= ParamData%Tdata(ParamData%NumDataLines) )  THEN
 
-         OtherStates%TimeIndex      = ParamData%NumDataLines - 1
+         MiscVars%TimeIndex      = ParamData%NumDataLines - 1
          V_tmp         = ParamData%V      (ParamData%NumDataLines)
          Delta_tmp     = ParamData%Delta  (ParamData%NumDataLines)
          VZ_tmp        = ParamData%VZ     (ParamData%NumDataLines)
@@ -676,35 +650,35 @@ CONTAINS
       ELSE
 
             ! Let's interpolate!  Linear interpolation.
-         OtherStates%TimeIndex = MAX( MIN( OtherStates%TimeIndex, ParamData%NumDataLines-1 ), 1 )
+         MiscVars%TimeIndex = MAX( MIN( MiscVars%TimeIndex, ParamData%NumDataLines-1 ), 1 )
 
          DO
 
-            IF ( Time < ParamData%Tdata(OtherStates%TimeIndex) )  THEN
+            IF ( Time < ParamData%Tdata(MiscVars%TimeIndex) )  THEN
 
-               OtherStates%TimeIndex = OtherStates%TimeIndex - 1
+               MiscVars%TimeIndex = MiscVars%TimeIndex - 1
 
-            ELSE IF ( Time >= ParamData%Tdata(OtherStates%TimeIndex+1) )  THEN
+            ELSE IF ( Time >= ParamData%Tdata(MiscVars%TimeIndex+1) )  THEN
 
-               OtherStates%TimeIndex = OtherStates%TimeIndex + 1
+               MiscVars%TimeIndex = MiscVars%TimeIndex + 1
 
             ELSE
-               P           = ( Time - ParamData%Tdata(OtherStates%TimeIndex) )/( ParamData%Tdata(OtherStates%TimeIndex+1) &
-                              - ParamData%Tdata(OtherStates%TimeIndex) )
-               V_tmp       = ( ParamData%V(      OtherStates%TimeIndex+1) - ParamData%V(      OtherStates%TimeIndex) )*P  &
-                              + ParamData%V(      OtherStates%TimeIndex)
-               Delta_tmp   = ( ParamData%Delta(  OtherStates%TimeIndex+1) - ParamData%Delta(  OtherStates%TimeIndex) )*P  &
-                              + ParamData%Delta(  OtherStates%TimeIndex)
-               VZ_tmp      = ( ParamData%VZ(     OtherStates%TimeIndex+1) - ParamData%VZ(     OtherStates%TimeIndex) )*P  &
-                              + ParamData%VZ(     OtherStates%TimeIndex)
-               HShr_tmp    = ( ParamData%HShr(   OtherStates%TimeIndex+1) - ParamData%HShr(   OtherStates%TimeIndex) )*P  &
-                              + ParamData%HShr(   OtherStates%TimeIndex)
-               VShr_tmp    = ( ParamData%VShr(   OtherStates%TimeIndex+1) - ParamData%VShr(   OtherStates%TimeIndex) )*P  &
-                              + ParamData%VShr(   OtherStates%TimeIndex)
-               VLinShr_tmp = ( ParamData%VLinShr(OtherStates%TimeIndex+1) - ParamData%VLinShr(OtherStates%TimeIndex) )*P  &
-                              + ParamData%VLinShr(OtherStates%TimeIndex)
-               VGust_tmp   = ( ParamData%VGust(  OtherStates%TimeIndex+1) - ParamData%VGust(  OtherStates%TimeIndex) )*P  &
-                              + ParamData%VGust(  OtherStates%TimeIndex)
+               P           = ( Time - ParamData%Tdata(MiscVars%TimeIndex) )/( ParamData%Tdata(MiscVars%TimeIndex+1) &
+                              - ParamData%Tdata(MiscVars%TimeIndex) )
+               V_tmp       = ( ParamData%V(      MiscVars%TimeIndex+1) - ParamData%V(      MiscVars%TimeIndex) )*P  &
+                              + ParamData%V(      MiscVars%TimeIndex)
+               Delta_tmp   = ( ParamData%Delta(  MiscVars%TimeIndex+1) - ParamData%Delta(  MiscVars%TimeIndex) )*P  &
+                              + ParamData%Delta(  MiscVars%TimeIndex)
+               VZ_tmp      = ( ParamData%VZ(     MiscVars%TimeIndex+1) - ParamData%VZ(     MiscVars%TimeIndex) )*P  &
+                              + ParamData%VZ(     MiscVars%TimeIndex)
+               HShr_tmp    = ( ParamData%HShr(   MiscVars%TimeIndex+1) - ParamData%HShr(   MiscVars%TimeIndex) )*P  &
+                              + ParamData%HShr(   MiscVars%TimeIndex)
+               VShr_tmp    = ( ParamData%VShr(   MiscVars%TimeIndex+1) - ParamData%VShr(   MiscVars%TimeIndex) )*P  &
+                              + ParamData%VShr(   MiscVars%TimeIndex)
+               VLinShr_tmp = ( ParamData%VLinShr(MiscVars%TimeIndex+1) - ParamData%VLinShr(MiscVars%TimeIndex) )*P  &
+                              + ParamData%VLinShr(MiscVars%TimeIndex)
+               VGust_tmp   = ( ParamData%VGust(  MiscVars%TimeIndex+1) - ParamData%VGust(  MiscVars%TimeIndex) )*P  &
+                              + ParamData%VGust(  MiscVars%TimeIndex)
                EXIT
 
             END IF
@@ -739,20 +713,21 @@ CONTAINS
    END FUNCTION GetWindSpeed
 
 
-   FUNCTION WindInf_ADhack_diskVel( Time,ParamData, OtherStates,ErrStat, ErrMsg )
-   ! This function should be deleted ASAP.  Its purpose is to reproduce results of AeroDyn 12.57;
-   ! when a consensus on the definition of "average velocity" is determined, this function will be
-   ! removed.
-   !----------------------------------------------------------------------------------------------------
+END SUBROUTINE IfW_UniformWind_CalcOutput
+
+!> This function should be deleted ASAP.  Its purpose is to reproduce results of AeroDyn 12.57;
+!! when a consensus on the definition of "average velocity" is determined, this function will be
+!! removed.
+FUNCTION WindInf_ADhack_diskVel( Time, ParamData, MiscVars,ErrStat, ErrMsg )
    
          ! Passed variables
    
       REAL(DbKi),                            INTENT(IN   )  :: Time              !< Time
-      TYPE(IfW_UniformWind_ParameterType),   INTENT(IN   )  :: ParamData         ! Parameters
-      TYPE(IfW_UniformWind_OtherStateType),  INTENT(INOUT)  :: OtherStates       ! Other State data   (storage for the main data)
+      TYPE(IfW_UniformWind_ParameterType),   INTENT(IN   )  :: ParamData         !< Parameters
+      TYPE(IfW_UniformWind_MiscVarType),     INTENT(INOUT)  :: MiscVars          !< misc/optimization data   (storage for the main data)
    
-      INTEGER(IntKi),                        INTENT(  OUT)  :: ErrStat
-      CHARACTER(*),                          INTENT(  OUT)  :: ErrMsg
+      INTEGER(IntKi),                        INTENT(  OUT)  :: ErrStat           !< error status from this function
+      CHARACTER(*),                          INTENT(  OUT)  :: ErrMsg            !< error message from this function 
    
          ! Function definition
       REAL(ReKi)                    :: WindInf_ADhack_diskVel(3)
@@ -777,14 +752,14 @@ CONTAINS
             ! Let's check the limits.
          IF ( Time <= ParamData%Tdata(1) .OR. ParamData%NumDataLines == 1 )  THEN
 
-            OtherStates%TimeIndex      = 1
+            MiscVars%TimeIndex      = 1
             V_tmp         = ParamData%V      (1)
             Delta_tmp     = ParamData%Delta  (1)
             VZ_tmp        = ParamData%VZ     (1)
 
          ELSE IF ( Time >= ParamData%Tdata(ParamData%NumDataLines) )  THEN
 
-            OtherStates%TimeIndex = ParamData%NumDataLines - 1
+            MiscVars%TimeIndex = ParamData%NumDataLines - 1
             V_tmp                 = ParamData%V      (ParamData%NumDataLines)
             Delta_tmp             = ParamData%Delta  (ParamData%NumDataLines)
             VZ_tmp                = ParamData%VZ     (ParamData%NumDataLines)
@@ -793,31 +768,31 @@ CONTAINS
 
               ! Let's interpolate!
 
-            OtherStates%TimeIndex = MAX( MIN( OtherStates%TimeIndex, ParamData%NumDataLines-1 ), 1 )
+            MiscVars%TimeIndex = MAX( MIN( MiscVars%TimeIndex, ParamData%NumDataLines-1 ), 1 )
 
             DO
 
-               IF ( Time < ParamData%Tdata(OtherStates%TimeIndex) )  THEN
+               IF ( Time < ParamData%Tdata(MiscVars%TimeIndex) )  THEN
 
-                  OtherStates%TimeIndex = OtherStates%TimeIndex - 1
+                  MiscVars%TimeIndex = MiscVars%TimeIndex - 1
 
-               ELSE IF ( Time >= ParamData%Tdata(OtherStates%TimeIndex+1) )  THEN
+               ELSE IF ( Time >= ParamData%Tdata(MiscVars%TimeIndex+1) )  THEN
 
-                  OtherStates%TimeIndex = OtherStates%TimeIndex + 1
+                  MiscVars%TimeIndex = MiscVars%TimeIndex + 1
 
                ELSE
-                  P           =  ( Time - ParamData%Tdata(OtherStates%TimeIndex) )/     &
-                                 ( ParamData%Tdata(OtherStates%TimeIndex+1)             &
-                                 - ParamData%Tdata(OtherStates%TimeIndex) )
-                  V_tmp       =  ( ParamData%V(      OtherStates%TimeIndex+1)           &
-                                 - ParamData%V(      OtherStates%TimeIndex) )*P         &
-                                 + ParamData%V(      OtherStates%TimeIndex)
-                  Delta_tmp   =  ( ParamData%Delta(  OtherStates%TimeIndex+1)           &
-                                 - ParamData%Delta(  OtherStates%TimeIndex) )*P         &
-                                 + ParamData%Delta(  OtherStates%TimeIndex)
-                  VZ_tmp      =  ( ParamData%VZ(     OtherStates%TimeIndex+1)           &
-                                 - ParamData%VZ(     OtherStates%TimeIndex) )*P  &
-                                 + ParamData%VZ(     OtherStates%TimeIndex)
+                  P           =  ( Time - ParamData%Tdata(MiscVars%TimeIndex) )/     &
+                                 ( ParamData%Tdata(MiscVars%TimeIndex+1)             &
+                                 - ParamData%Tdata(MiscVars%TimeIndex) )
+                  V_tmp       =  ( ParamData%V(      MiscVars%TimeIndex+1)           &
+                                 - ParamData%V(      MiscVars%TimeIndex) )*P         &
+                                 + ParamData%V(      MiscVars%TimeIndex)
+                  Delta_tmp   =  ( ParamData%Delta(  MiscVars%TimeIndex+1)           &
+                                 - ParamData%Delta(  MiscVars%TimeIndex) )*P         &
+                                 + ParamData%Delta(  MiscVars%TimeIndex)
+                  VZ_tmp      =  ( ParamData%VZ(     MiscVars%TimeIndex+1)           &
+                                 - ParamData%VZ(     MiscVars%TimeIndex) )*P  &
+                                 + ParamData%VZ(     MiscVars%TimeIndex)
                   EXIT
 
                END IF
@@ -841,22 +816,14 @@ CONTAINS
    END FUNCTION WindInf_ADhack_diskVel
 
 
-
-
-
-END SUBROUTINE IfW_UniformWind_CalcOutput
-
 !====================================================================================================
-
-!----------------------------------------------------------------------------------------------------
 !>  This routine closes any open files and clears all data stored in UniformWind derived Types
 !!
 !! @note  This routine does not satisfy the Modular framework.  The InputType is not used, rather
 !!          an array of points is passed in. 
 !! @date:  16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
 !----------------------------------------------------------------------------------------------------
-SUBROUTINE IfW_UniformWind_End( PositionXYZ, ParamData, OtherStates, OutData, ErrStat, ErrMsg)
-
+SUBROUTINE IfW_UniformWind_End( PositionXYZ, ParamData, OutData, MiscVars, ErrStat, ErrMsg)
 
    IMPLICIT                                                       NONE
 
@@ -864,15 +831,15 @@ SUBROUTINE IfW_UniformWind_End( PositionXYZ, ParamData, OtherStates, OutData, Er
 
 
       ! Passed Variables
-   REAL(ReKi),    ALLOCATABLE,                  INTENT(INOUT)  :: PositionXYZ(:,:)  ! Array of XYZ positions to find wind speeds at
-   TYPE(IfW_UniformWind_ParameterType),         INTENT(INOUT)  :: ParamData         ! Parameters
-   TYPE(IfW_UniformWind_OtherStateType),        INTENT(INOUT)  :: OtherStates       ! Other State data   (storage for the main data)
-   TYPE(IfW_UniformWind_OutputType),            INTENT(INOUT)  :: OutData           ! Initial output
+   REAL(ReKi),    ALLOCATABLE,                  INTENT(INOUT)  :: PositionXYZ(:,:)  !< Array of XYZ positions to find wind speeds at
+   TYPE(IfW_UniformWind_ParameterType),         INTENT(INOUT)  :: ParamData         !< Parameters
+   TYPE(IfW_UniformWind_OutputType),            INTENT(INOUT)  :: OutData           !< Output
+   TYPE(IfW_UniformWind_MiscVarType),           INTENT(INOUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
 
       ! Error Handling
-   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           ! determines if an error has been encountered
-   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            ! Message about errors
+   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            !< Message about errors
 
 
       ! Local Variables
@@ -899,7 +866,7 @@ SUBROUTINE IfW_UniformWind_End( PositionXYZ, ParamData, OtherStates, OutData, Er
 
       ! Destroy the state data
 
-   CALL IfW_UniformWind_DestroyOtherState(  OtherStates,   TmpErrStat, TmpErrMsg )
+   CALL IfW_UniformWind_DestroyMisc(  MiscVars,   TmpErrStat, TmpErrMsg )
    CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName )
 
 
@@ -911,12 +878,9 @@ SUBROUTINE IfW_UniformWind_End( PositionXYZ, ParamData, OtherStates, OutData, Er
 
       ! reset time index so we know the module is no longer initialized
 
-   OtherStates%TimeIndex   = 0
+   MiscVars%TimeIndex   = 0
 
 END SUBROUTINE IfW_UniformWind_End
 
-
-!====================================================================================================
-!====================================================================================================
 !====================================================================================================
 END MODULE IfW_UniformWind

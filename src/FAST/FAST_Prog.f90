@@ -2,7 +2,7 @@
 ! The FAST_Prog.f90, FAST_IO.f90, and FAST_Mods.f90 make up the FAST glue code in the FAST Modularization Framework.
 !..................................................................................................................................
 ! LICENSING
-! Copyright (C) 2013-2015  National Renewable Energy Laboratory
+! Copyright (C) 2013-2016  National Renewable Energy Laboratory
 !
 !    This file is part of FAST.
 !
@@ -19,8 +19,8 @@
 ! limitations under the License.
 !
 !**********************************************************************************************************************************
-! File last committed: $Date: 2015-06-15 12:51:05 -0600 (Mon, 15 Jun 2015) $
-! (File) Revision #: $Rev: 1035 $
+! File last committed: $Date: 2016-04-12 23:36:13 -0600 (Tue, 12 Apr 2016) $
+! (File) Revision #: $Rev: 1260 $
 ! URL: $HeadURL: https://windsvn.nrel.gov/FAST/branches/BJonkman/Source/FAST_Prog.f90 $
 !**********************************************************************************************************************************
 PROGRAM FAST
@@ -35,7 +35,7 @@ PROGRAM FAST
 !.................................................................................................
 
 
-USE FAST_Subs   ! all of the ModuleName and ModuleName_types modules are inherited from FAST_IO_Subs
+USE FAST_Subs   ! all of the ModuleName and ModuleName_types modules are inherited from FAST_Subs
                        
 IMPLICIT  NONE
    

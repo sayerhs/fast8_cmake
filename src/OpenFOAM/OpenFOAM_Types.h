@@ -1,6 +1,6 @@
 //!STARTOFREGISTRYGENERATEDFILE 'OpenFOAM_Types.h'
 //!
-//! WARNING This file is generated automatically by the FAST registry
+//! WARNING This file is generated automatically by the FAST registry.
 //! Do not edit.  Your changes to this file will be lost.
 //!
 
@@ -22,8 +22,8 @@
 
   typedef struct OpFM_InitInputType {
     void * object ;
-    int NumSCin ;
-    int NumSCout ;
+    int NumSC2Ctrl ;
+    int NumCtrl2SC ;
   } OpFM_InitInputType_t ;
   typedef struct OpFM_InitOutputType {
     void * object ;
@@ -64,6 +64,7 @@
   typedef struct OpFM_UserData {
     OpFM_InitInputType_t           OpFM_InitInput ;
     OpFM_InitOutputType_t          OpFM_InitOutput ;
+    OpFM_MiscVarType_t             OpFM_Misc ;
     OpFM_ParameterType_t           OpFM_Param ;
     OpFM_InputType_t               OpFM_Input ;
     OpFM_OutputType_t              OpFM_Output ;

@@ -1,6 +1,6 @@
 !**********************************************************************************************************************************
 ! LICENSING
-! Copyright (C) 2013  National Renewable Energy Laboratory
+! Copyright (C) 2013-2015  National Renewable Energy Laboratory
 !
 !    This file is part of HydroDyn.
 !
@@ -17,9 +17,9 @@
 ! limitations under the License.
 !    
 !**********************************************************************************************************************************
-! File last committed: $Date: 2015-08-11 08:28:58 -0600 (Tue, 11 Aug 2015) $
-! (File) Revision #: $Rev: 622 $
-! URL: $HeadURL: https://windsvn.nrel.gov/HydroDyn/branches/UserWaves/Source/HydroDyn_Output.f90 $
+! File last committed: $Date: 2016-03-28 12:43:49 -0600 (Mon, 28 Mar 2016) $
+! (File) Revision #: $Rev: 668 $
+! URL: $HeadURL: https://windsvn.nrel.gov/HydroDyn/trunk/Source/HydroDyn_Output.f90 $
 !**********************************************************************************************************************************
 MODULE HydroDyn_Output
 
@@ -273,8 +273,8 @@ SUBROUTINE HDOut_OpenSum( UnSum, SummaryName, HD_Prog, ErrStat, ErrMsg )
 END SUBROUTINE HDOut_OpenSum 
 
 !====================================================================================================
-SUBROUTINE HDOut_WriteWvKinFiles( Rootname, HD_Prog, NStepWave, NNodes, NWaveElev, nodeInWater, WaveElev, WaveKinzi0, &
-                                    WaveTime, WaveVel0, WaveAcc0, WaveDynP0, ErrStat, ErrMsg )
+SUBROUTINE HDOut_WriteWvKinFiles( Rootname, HD_Prog, NStepWave, NNodes, NWaveElev, nodeInWater, WaveElev, WaveKinzi, &
+                                    WaveTime, WaveVel, WaveAcc, WaveDynP, ErrStat, ErrMsg )
 
       ! Passed variables
    CHARACTER(*),                  INTENT( IN    )   :: Rootname             ! filename including full path, minus any file extension.
@@ -282,13 +282,13 @@ SUBROUTINE HDOut_WriteWvKinFiles( Rootname, HD_Prog, NStepWave, NNodes, NWaveEle
    INTEGER,                       INTENT( IN    )   :: NStepWave            ! Number of time steps for the wave kinematics arrays
    INTEGER,                       INTENT( IN    )   :: NNodes               ! Number of simulation nodes for the wave kinematics arrays
    INTEGER,                       INTENT( IN    )   :: NWaveElev            ! Number of locations where wave elevations were requested
-   LOGICAL,                       INTENT( IN    )   :: nodeInWater(0:,: )     !
+   INTEGER,                       INTENT( IN    )   :: nodeInWater(0:,: )     !
    REAL(SiKi),                    INTENT( IN    )   :: WaveElev  (0:,: )     ! Instantaneous wave elevations at requested locations
-   REAL(SiKi),                    INTENT( IN    )   :: WaveKinzi0(:    )     ! The z-location of all the nodes
+   REAL(SiKi),                    INTENT( IN    )   :: WaveKinzi(:    )     ! The z-location of all the nodes
    REAL(SiKi),                    INTENT( IN    )   :: WaveTime (0:    )     ! The time values for the wave kinematics  (time)
-   REAL(SiKi),                    INTENT( IN    )   :: WaveVel0 (0:,:,:)     ! The wave velocities (time,node,component)
-   REAL(SiKi),                    INTENT( IN    )   :: WaveAcc0 (0:,:,:)     ! The wave accelerations (time,node,component)
-   REAL(SiKi),                    INTENT( IN    )   :: WaveDynP0(0:,:)       ! The wave dynamic pressure (time,node)
+   REAL(SiKi),                    INTENT( IN    )   :: WaveVel (0:,:,:)     ! The wave velocities (time,node,component)
+   REAL(SiKi),                    INTENT( IN    )   :: WaveAcc (0:,:,:)     ! The wave accelerations (time,node,component)
+   REAL(SiKi),                    INTENT( IN    )   :: WaveDynP(0:,:)       ! The wave dynamic pressure (time,node)
    INTEGER,                       INTENT(   OUT )   :: ErrStat              ! returns a non-zero value when an error occurs  
    CHARACTER(*),                  INTENT(   OUT )   :: ErrMsg               ! Error message if ErrStat /= ErrID_None
       
@@ -329,25 +329,25 @@ SUBROUTINE HDOut_WriteWvKinFiles( Rootname, HD_Prog, NStepWave, NNodes, NWaveEle
       
       DO i= 0,NStepWave-1
          DO j = 1, NNodes
-            IF (   .NOT. nodeInWater(i,j) )  THEN
+            IF ( nodeInWater(i,j) == 0 )  THEN
                WRITE(UnWv,Sfrmt,ADVANCE='no')   Delim,  '##########'
             ELSE
                   
                SELECT CASE (iFile)
                   CASE (1)              
-                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveVel0 (i,j,1)  
+                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveVel (i,j,1)  
                   CASE (2)              
-                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveVel0 (i,j,2)  
+                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveVel (i,j,2)  
                   CASE (3)              
-                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveVel0 (i,j,3)  
+                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveVel (i,j,3)  
                   CASE (4)              
-                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveAcc0 (i,j,1)  
+                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveAcc (i,j,1)  
                   CASE (5)              
-                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveAcc0 (i,j,2)  
+                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveAcc (i,j,2)  
                   CASE (6)              
-                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveAcc0 (i,j,3)  
+                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveAcc (i,j,3)  
                   CASE (7)              
-                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveDynP0(i,j  )  
+                     WRITE(UnWv,Frmt,ADVANCE='no')   Delim,  WaveDynP(i,j  )  
                   END SELECT
             END IF
          END DO
@@ -528,7 +528,7 @@ SUBROUTINE HDOut_WriteOutputs( Time, y, p, Decimate, ErrStat, ErrMsg )
 END SUBROUTINE HDOut_WriteOutputs
 
 !====================================================================================================
-SUBROUTINE HDOUT_Init( HydroDyn_ProgDesc, InitInp, y,  p, OtherState, InitOut, ErrStat, ErrMsg )
+SUBROUTINE HDOUT_Init( HydroDyn_ProgDesc, InitInp, y,  p, m, InitOut, ErrStat, ErrMsg )
 ! This subroutine initialized the output module, checking if the output parameter list (OutList)
 ! contains valid names, and opening the output file if there are any requested outputs
 ! NOTE: This routine must be called only after any sub-modules OUT_Init() subroutines have been called.
@@ -542,7 +542,7 @@ SUBROUTINE HDOUT_Init( HydroDyn_ProgDesc, InitInp, y,  p, OtherState, InitOut, E
    TYPE(HydroDyn_InitInputType ), INTENT( IN    ) :: InitInp              ! data needed to initialize the output module     
    TYPE(HydroDyn_OutputType),     INTENT( INOUT ) :: y                    ! This module's internal data
    TYPE(HydroDyn_ParameterType),  INTENT( INOUT ) :: p 
-   TYPE(HydroDyn_OtherStateType), INTENT( INOUT ) :: OtherState
+   TYPE(HydroDyn_MiscVarType),    INTENT( INOUT ) :: m
    TYPE(HydroDyn_InitOutputType), INTENT( INOUT ) :: InitOut
    INTEGER,                       INTENT(   OUT ) :: ErrStat              ! a non-zero value indicates an error occurred           
    CHARACTER(*),                  INTENT(   OUT ) :: ErrMsg               ! Error message if ErrStat /= ErrID_None
@@ -624,10 +624,10 @@ SUBROUTINE HDOUT_Init( HydroDyn_ProgDesc, InitInp, y,  p, OtherState, InitOut, E
          hasWAMIT2Outs  = .FALSE.
          hasWaves2Outs  = .FALSE.
          hasMorisonOuts = .FALSE.
-         p%NumTotalOuts   = p%NumOuts
-         OtherState%LastOutTime = 0.0_DbKi
-         OtherState%Decimate    = 0
-         p%OutDec               = 1             !TODO: Remove this once the parameter has been added to the HD input file GJH 7/8/2014
+         p%NumTotalOuts = p%NumOuts
+         m%LastOutTime  = 0.0_DbKi
+         m%Decimate     = 0
+         p%OutDec       = 1             !TODO: Remove this once the parameter has been added to the HD input file GJH 7/8/2014
          
          IF (ALLOCATED( p%WAMIT%OutParam ) .AND. p%WAMIT%NumOuts > 0) THEN
             hasWAMITOuts = .TRUE.
@@ -668,7 +668,7 @@ SUBROUTINE HDOUT_Init( HydroDyn_ProgDesc, InitInp, y,  p, OtherState, InitOut, E
             ErrStat = ErrID_Fatal
             RETURN
          END IF
-         y%WriteOutput = 0.0_ReKi  ! bjj added this only so the Intel Inspector wouldn't complaing about uninitialized memory access (was harmless)
+         y%WriteOutput = 0.0_ReKi  ! bjj added this only so the Intel Inspector wouldn't complain about uninitialized memory access (was harmless)
          
                   
             ! Initialize the HD-level Hdr and Unt elements
@@ -689,17 +689,19 @@ SUBROUTINE HDOUT_Init( HydroDyn_ProgDesc, InitInp, y,  p, OtherState, InitOut, E
                J = J + 1
             END DO
          END IF
-         IF ( hasWAMIT2Outs ) THEN
-            DO I=1, p%WAMIT2%NumOuts
-               InitOut%WriteOutputHdr(J) = InitOut%WAMIT2%WriteOutputHdr(I)
-               InitOut%WriteOutputUnt(J) = InitOut%WAMIT2%WriteOutputUnt(I)
-               J = J + 1
-            END DO
-         END IF
+         
          IF ( hasWaves2Outs ) THEN
             DO I=1, p%Waves2%NumOuts
                InitOut%WriteOutputHdr(J) = InitOut%Waves2%WriteOutputHdr(I)
                InitOut%WriteOutputUnt(J) = InitOut%Waves2%WriteOutputUnt(I)
+               J = J + 1
+            END DO
+         END IF
+         
+         IF ( hasWAMIT2Outs ) THEN
+            DO I=1, p%WAMIT2%NumOuts
+               InitOut%WriteOutputHdr(J) = InitOut%WAMIT2%WriteOutputHdr(I)
+               InitOut%WriteOutputUnt(J) = InitOut%WAMIT2%WriteOutputUnt(I)
                J = J + 1
             END DO
          END IF

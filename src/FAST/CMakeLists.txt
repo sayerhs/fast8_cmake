@@ -10,6 +10,7 @@ generate_f90types(FAST_Registry.txt FAST_Types.f90 -noextrap)
 add_library(fast8lib 
   FAST_Mods.f90
   FAST_Prog.f90
+  FAST_Solver.f90
   FAST_Subs.f90
   FAST_Types.f90
   ../OpenFOAM/OpenFOAM.f90

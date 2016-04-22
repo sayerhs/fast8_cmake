@@ -9,10 +9,6 @@
 #
 # Use ^ as a shortcut for the value in the same column from the previous line.
 ###################################################################################################################################
-# File last committed $Date: 2015-10-05 09:24:16 -0600 (Mon, 05 Oct 2015) $
-# (File) Revision #: $Rev: 1140 $
-# URL: $HeadURL: https://windsvn.nrel.gov/FAST/branches/BJonkman/Source/ElastoDyn_Registry.txt $
-###################################################################################################################################
 # ...... Include files (definitions from NWTC Library) ............................................................................
 include	Registry_NWTC_Library.txt
 
@@ -37,6 +33,8 @@ typedef	^	InitOutputType	ReKi	BlPitch	{:}	-	-	"Initial blade pitch angles"	radia
 typedef	^	InitOutputType	ReKi	BladeLength	-	-	-	"Blade length (for AeroDyn)"	meters
 typedef	^	InitOutputType	ReKi	HubHt	-	-	-	"Height of the hub"	meters
 typedef	^	InitOutputType	ReKi	PlatformPos	{6}	-	-	"Initial platform position (6 DOFs)"
+typedef	^	InitOutputType	ReKi	TwrBasePos	{3}	-	-	"initial position of the tower base (for SrvD)"	m
+typedef	^	InitOutputType	ReKi	HubRad	-	-	-	"radius of hub"	m
 
 # ..... Blade Input file data ...........................................................................................................
 typedef	ElastoDyn/ED	BladeInputData	IntKi	NBlInpSt	-	-	-	"Number of blade input stations"	-
@@ -518,25 +516,25 @@ typedef	^	DiscreteStateType	ReKi	DummyDiscState	-	-	-	"Remove this variable if y
 # Define constraint states here:
 typedef	^	ConstraintStateType	ReKi	DummyConstrState	-	-	-	"Remove this variable if you have constraint states"	-
 
-# Define "other" states (any data that are not considered actual states) here:
-typedef	^	OtherStateType	ED_CoordSys	CoordSys	-	-	-	"Coordinate systems in the FAST framework"	-
-typedef	^	OtherStateType	ED_RtHndSide	RtHS	-	-	-	"Values used in calculating the right-hand-side RtHS (and outputs)"
+# Define "other" states here:
 typedef	^	OtherStateType	IntKi	n	-	-	-	"tracks time step for which OtherState was updated"
 typedef	^	OtherStateType	ED_ContinuousStateType	xdot	{ED_NMX}	-	-	"previous state deriv for multi-step"
 typedef	^	OtherStateType	IntKi	IC	{:}	-	-	"Array which stores pointers to predictor-corrector results"
-typedef	^	OtherStateType	R8Ki	QD2T	{:}	-	-	"Solution (acceleration) vector; the first time derivative of QDT"
-#typedef	^	OtherStateType	ReKi	BlPitch	{:}	-	-	"Current blade pitch angles"	radians
-typedef	^	OtherStateType	R8Ki	AugMat	{:}{:}	-	-	"The augmented matrix used for the solution of the QD2T()s"
-typedef	^	OtherStateType	R8Ki	AugMat_factor	{:}{:}	-	-	"factored version of AugMat matrix"
-typedef	^	OtherStateType	R8Ki	SolnVec	{:}	-	-	"b in the equation Ax=b (last column of AugMat)"
-typedef	^	OtherStateType	IntKi	AugMat_pivot	{:}	-	-	"Pivot column for AugMat in LAPACK factorization"
-#typedef	^	OtherStateType	ED_ContinuousStateType	k1	-	-	-	"Constant for ED_RK4 routine"	-
-typedef	^	OtherStateType	ReKi	AllOuts	{:}	-	-	"An array holding the value of all of the calculated (not only selected) output channels"	"see OutListParameters.xlsx spreadsheet"
 typedef	^	OtherStateType	ReKi	HSSBrTrq	-	-	-	"HSSBrTrq from update states; a hack to get this working with a single integrator"	-
 typedef	^	OtherStateType	ReKi	HSSBrTrqC	-	-	-	"Commanded HSS brake torque (adjusted for sign)"	N-m
-typedef	^	OtherStateType	ReKi	OgnlGeAzRo	{:}	-	-	"Original DOF_GeAz row in AugMat"	-
 typedef	^	OtherStateType	IntKi	SgnPrvLSTQ	-	-	-	"The sign of the low-speed shaft torque from the previous call to RtHS().  This is calculated at the end of RtHS().  NOTE: The low-speed shaft torque is assumed to be positive at the beginning of the run!"	-
 typedef	^	OtherStateType	IntKi	SgnLSTQ	{ED_NMX}	-	-	"history of sign of LSTQ"
+
+# ..... Misc Vars ................................................................................................................
+typedef	^	MiscVarType	ED_CoordSys	CoordSys	-	-	-	"Coordinate systems in the FAST framework"	-
+typedef	^	MiscVarType	ED_RtHndSide	RtHS	-	-	-	"Values used in calculating the right-hand-side RtHS (and outputs)"
+typedef	^	MiscVarType	ReKi	AllOuts	{:}	-	-	"An array holding the value of all of the calculated (not only selected) output channels"	"see OutListParameters.xlsx spreadsheet"
+typedef	^	MiscVarType	R8Ki	AugMat	{:}{:}	-	-	"The augmented matrix used for the solution of the QD2T()s"
+typedef	^	MiscVarType	R8Ki	AugMat_factor	{:}{:}	-	-	"factored version of AugMat matrix"
+typedef	^	MiscVarType	R8Ki	SolnVec	{:}	-	-	"b in the equation Ax=b (last column of AugMat)"
+typedef	^	MiscVarType	IntKi	AugMat_pivot	{:}	-	-	"Pivot column for AugMat in LAPACK factorization"
+typedef	^	MiscVarType	ReKi	OgnlGeAzRo	{:}	-	-	"Original DOF_GeAz row in AugMat"	-
+typedef	^	MiscVarType	R8Ki	QD2T	{:}	-	-	"Solution (acceleration) vector; the first time derivative of QDT"
 
 # ..... Parameters ................................................................................................................
 # Define parameters here:
@@ -787,9 +785,9 @@ typedef	^	ParameterType	LOGICAL	UseAD14	-	-	-	"flag to determine if AeroDyn14 is
 
 # ..... Inputs ....................................................................................................................
 # Define inputs that are contained on the mesh here:
-typedef	^	InputType	MeshType	BladeLn2Mesh	{:}	-	-	"A mesh on each blade, containing aerodynamic forces and moments (formerly AeroBladeForce and AeroBladeMoment)"
+typedef	^	InputType	MeshType	BladePtLoads	{:}	-	-	"A mesh on each blade, containing aerodynamic forces and moments (formerly AeroBladeForce and AeroBladeMoment)"
 typedef	^	InputType	MeshType	PlatformPtMesh	-	-	-	"A mesh at the platform reference (point Z), containing force: surge/xi (1), sway/yi (2), and heave/zi (3)-components; and moments: roll/xi (1), pitch/yi (2), and yaw/zi (3)-components acting at the platform (body X) / platform reference (point Z) associated with everything but the QD2T()s"	N
-typedef	^	InputType	MeshType	TowerLn2Mesh	-	-	-	"Tower line2 mesh with forces: surge/xi (1), sway/yi (2), and heave/zi (3)-components of the portion of the tower force at the current tower node (point T); and moments: roll/xi (1), pitch/yi (2), and yaw/zi (3)-components of the portion of the tower moment acting at the current tower node"	N/m
+typedef	^	InputType	MeshType	TowerPtLoads	-	-	-	"Tower line2 mesh with forces: surge/xi (1), sway/yi (2), and heave/zi (3)-components of the portion of the tower force at the current tower node (point T); and moments: roll/xi (1), pitch/yi (2), and yaw/zi (3)-components of the portion of the tower moment acting at the current tower node"	N/m
 typedef	^	InputType	MeshType	HubPtLoad	-	-	-	"A mesh at the teeter pin, containing forces: surge/xi (1), sway/yi (2), and heave/zi (3)-components; and moments: roll/xi (1), pitch/yi (2), and yaw/zi (3)-components acting at the hub. Passed from BeamDyn"
 typedef	^	InputType	MeshType	NacelleLoads	-	-	-	"From ServoDyn/TMD: loads on the nacelle."
 # Define inputs that are not on a mesh here:

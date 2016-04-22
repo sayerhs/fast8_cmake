@@ -1,13 +1,13 @@
-MODULE IfW_UserWind
 !> This module is a placeholder for any user defined wind types.  The end user can use this as a template for their code.
 !! @note  This module does not need to exactly conform to the FAST Modularization Framework standards.  Three routines are required
 !! though:
 !!    -- IfW_UserWind_Init          -- Load or create any wind data.  Only called at the start of FAST.
 !!    -- IfW_UserWind_CalcOutput    -- This will be called at each timestep with a series of data points to give wind velocities at.
 !!    -- IfW_UserWind_End           -- clear out any stored stuff.  Only called at the end of FAST.
+MODULE IfW_UserWind
 !**********************************************************************************************************************************
 ! LICENSING
-! Copyright (C) 2015  National Renewable Energy Laboratory
+! Copyright (C) 2015-2016  National Renewable Energy Laboratory
 !
 !    This file is part of InflowWind.
 !
@@ -48,7 +48,7 @@ CONTAINS
 !----------------------------------------------------------------------------------------------------
 !> A subroutine to initialize the UserWind module. This routine will initialize the module. 
 !----------------------------------------------------------------------------------------------------
-SUBROUTINE IfW_UserWind_Init(InitData, PositionXYZ, ParamData, OtherStates, OutData, Interval, InitOutData, ErrStat, ErrMsg)
+SUBROUTINE IfW_UserWind_Init(InitData, ParamData, MiscVars, Interval, InitOutData, ErrStat, ErrMsg)
 
 
    IMPLICIT                                                       NONE
@@ -59,28 +59,24 @@ SUBROUTINE IfW_UserWind_Init(InitData, PositionXYZ, ParamData, OtherStates, OutD
       ! Passed Variables
 
             !  Anything this code needs to be able to generate or read its data in should be passed into here through InitData.
-   TYPE(IfW_UserWind_InitInputType),            INTENT(IN   )  :: InitData          ! Input data for initialization.
-
-   REAL(ReKi),       ALLOCATABLE,               INTENT(INOUT)  :: PositionXYZ(:,:)  ! Array of positions to find wind speed at.  Can be empty for now.
+   TYPE(IfW_UserWind_InitInputType),            INTENT(IN   )  :: InitData          !< Input data for initialization.
 
             !  Store all data that does not change during the simulation in here (including the wind data field).  This cannot be changed later.
-   TYPE(IfW_UserWind_ParameterType),            INTENT(  OUT)  :: ParamData         ! Parameters.
+   TYPE(IfW_UserWind_ParameterType),            INTENT(  OUT)  :: ParamData         !< Parameters.
 
             !  Store things that change during the simulation (indices to arrays for quicker searching etc).
-   TYPE(IfW_UserWind_OtherStateType),           INTENT(  OUT)  :: OtherStates       ! Other State data.
-
-   TYPE(IfW_UserWind_OutputType),               INTENT(  OUT)  :: OutData           ! Initial output.  This can be empty at this point.
-
+   TYPE(IfW_UserWind_MiscVarType),              INTENT(  OUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
+   
             !  Anything that should be passed back to the InflowWind or higher modules regarding initialization.
-   TYPE(IfW_UserWind_InitOutputType),           INTENT(  OUT)  :: InitOutData       ! Initial output.
+   TYPE(IfW_UserWind_InitOutputType),           INTENT(  OUT)  :: InitOutData       !< Initial output.
 
-   REAL(DbKi),                                  INTENT(IN   )  :: Interval          ! Do not change this!!
+   REAL(DbKi),                                  INTENT(IN   )  :: Interval          !< Do not change this!!
 
 
 
       ! Error handling
-   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           ! determines if an error has been encountered
-   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            ! A message about the error.  See NWTC_Library info for ErrID_* levels.
+   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            !< A message about the error.  See NWTC_Library info for ErrID_* levels.
 
       ! local variables
    ! Put local variables used during initializing your wind here.  DO NOT USE GLOBAL VARIABLES EVER!
@@ -102,37 +98,6 @@ SUBROUTINE IfW_UserWind_Init(InitData, PositionXYZ, ParamData, OtherStates, OutD
    TmpErrMsg   = ""
 
 
-      ! Check that the PositionXYZ array has been allocated.  The OutData%Velocity does not need to be allocated yet.
-   IF ( .NOT. ALLOCATED(PositionXYZ) ) THEN
-      CALL SetErrStat(ErrID_Fatal,' Programming error: The PositionXYZ array has not been allocated prior to call to '//RoutineName//'.',   &
-                  ErrStat,ErrMsg,'')
-   ENDIF
-
-   IF ( ErrStat >= AbortErrLev ) RETURN
-
-
-      ! Check that the PositionXYZ and OutData%Velocity arrays are the same size.
-   IF ( ALLOCATED(OutData%Velocity) .AND. & 
-        ( (SIZE( PositionXYZ, DIM = 1 ) /= SIZE( OutData%Velocity, DIM = 1 )) .OR. &
-          (SIZE( PositionXYZ, DIM = 2 ) /= SIZE( OutData%Velocity, DIM = 2 ))      )  ) THEN
-      CALL SetErrStat(ErrID_Fatal,' Programming error: Different number of XYZ coordinates and expected output velocities.', &
-                  ErrStat,ErrMsg,RoutineName)
-      RETURN
-   ENDIF
-
-
-
-
-      !-------------------------------------------------------------------------------------------------
-      ! Check that it's not already initialized
-      !-------------------------------------------------------------------------------------------------
-
-   IF ( OtherStates%Initialized ) THEN
-      CALL SetErrStat(ErrID_Warn,' UserWind has already been initialized.',ErrStat,ErrMsg,RoutineName)
-      RETURN
-   END IF
-
-
       ! Get a unit number to use
 
    CALL GetNewUnit(UnitWind, TmpErrStat, TmpErrMsg)
@@ -148,7 +113,7 @@ SUBROUTINE IfW_UserWind_Init(InitData, PositionXYZ, ParamData, OtherStates, OutD
 !   ParamData%RefHt            =  InitData%ReferenceHeight
 !   ParamData%RefLength        =  InitData%RefLength
 !   ParamData%WindFileName     =  InitData%WindFileName
-
+    ParamData%WindFileName     = ""
 
       !-------------------------------------------------------------------------------------------------
       ! Open the file for reading.  Proceed with file parsing etc.  Populate your wind field here.
@@ -159,6 +124,11 @@ SUBROUTINE IfW_UserWind_Init(InitData, PositionXYZ, ParamData, OtherStates, OutD
 !   IF ( ErrStat >= AbortErrLev ) RETURN
 
 
+      !-------------------------------------------------------------------------------------------------
+      ! Set the MiscVars:
+      !-------------------------------------------------------------------------------------------------
+      
+    MiscVars%DummyMiscVar = 0
 
 
       !-------------------------------------------------------------------------------------------------
@@ -188,7 +158,7 @@ END SUBROUTINE IfW_UserWind_Init
 !!          primary wind flow is along the X-axis.  The rotations to PropagationDir are taken care of
 !!          in the InflowWind_CalcOutput subroutine which calls this routine.
 !-------------------------------------------------------------------------------------------------
-SUBROUTINE IfW_UserWind_CalcOutput(Time, PositionXYZ, ParamData, OtherStates, OutData, ErrStat, ErrMsg)
+SUBROUTINE IfW_UserWind_CalcOutput(Time, PositionXYZ, ParamData, OutData, MiscVars, ErrStat, ErrMsg)
 
    IMPLICIT                                                       NONE
 
@@ -196,15 +166,15 @@ SUBROUTINE IfW_UserWind_CalcOutput(Time, PositionXYZ, ParamData, OtherStates, Ou
 
 
       ! Passed Variables
-   REAL(DbKi),                                  INTENT(IN   )  :: Time              ! time from the start of the simulation
-   REAL(ReKi), ALLOCATABLE,                     INTENT(IN   )  :: PositionXYZ(:,:)  ! Array of XYZ coordinates, 3xN
-   TYPE(IfW_UserWind_ParameterType),            INTENT(IN   )  :: ParamData         ! Parameters
-   TYPE(IfW_UserWind_OtherStateType),           INTENT(INOUT)  :: OtherStates       ! Other State data   (storage for the main data)
-   TYPE(IfW_UserWind_OutputType),               INTENT(INOUT)  :: OutData           ! Initial output     (Set to INOUT so that array does not get deallocated)
+   REAL(DbKi),                                  INTENT(IN   )  :: Time              !< time from the start of the simulation
+   REAL(ReKi), ALLOCATABLE,                     INTENT(IN   )  :: PositionXYZ(:,:)  !< Array of XYZ coordinates, 3xN
+   TYPE(IfW_UserWind_ParameterType),            INTENT(IN   )  :: ParamData         !< Parameters
+   TYPE(IfW_UserWind_OutputType),               INTENT(INOUT)  :: OutData           !< Output at Time (Set to INOUT so that array does not get deallocated)
+   TYPE(IfW_UserWind_MiscVarType),              INTENT(INOUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
       ! Error handling
-   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           ! error status
-   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            ! The error message
+   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           !< error status
+   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            !< The error message
 
 
       ! local counters
@@ -227,13 +197,6 @@ SUBROUTINE IfW_UserWind_CalcOutput(Time, PositionXYZ, ParamData, OtherStates, Ou
    ErrMsg      = ""
    TmpErrStat  = ErrID_None
    TmpErrMsg   = ""
-
-
-      ! Check and make sure that the module was initialized.
-   IF ( .NOT. OtherStates%Initialized ) THEN
-      CALL SetErrStat(ErrID_Fatal,' UserWind has already been initialized.',ErrStat,ErrMsg,RoutineName)
-      RETURN
-   END IF
 
 
       ! The array is transposed so that the number of points is the second index, x/y/z is the first.
@@ -293,7 +256,7 @@ END SUBROUTINE IfW_UserWind_CalcOutput
 !!          an array of points is passed in. 
 !! @date:  16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
 !----------------------------------------------------------------------------------------------------
-SUBROUTINE IfW_UserWind_End( PositionXYZ, ParamData, OtherStates, OutData, ErrStat, ErrMsg)
+SUBROUTINE IfW_UserWind_End( PositionXYZ, ParamData, OutData, MiscVars, ErrStat, ErrMsg)
 
 
    IMPLICIT                                                       NONE
@@ -302,15 +265,15 @@ SUBROUTINE IfW_UserWind_End( PositionXYZ, ParamData, OtherStates, OutData, ErrSt
 
 
       ! Passed Variables
-   REAL(ReKi),    ALLOCATABLE,                  INTENT(INOUT)  :: PositionXYZ(:,:)  ! Array of XYZ positions to find wind speeds at
-   TYPE(IfW_UserWind_ParameterType),            INTENT(INOUT)  :: ParamData         ! Parameters
-   TYPE(IfW_UserWind_OtherStateType),           INTENT(INOUT)  :: OtherStates       ! Other State data   (storage for the main data)
-   TYPE(IfW_UserWind_OutputType),               INTENT(INOUT)  :: OutData           ! Initial output
+   REAL(ReKi),    ALLOCATABLE,                  INTENT(INOUT)  :: PositionXYZ(:,:)  !< Array of XYZ positions to find wind speeds at
+   TYPE(IfW_UserWind_ParameterType),            INTENT(INOUT)  :: ParamData         !< Parameters
+   TYPE(IfW_UserWind_OutputType),               INTENT(INOUT)  :: OutData           !< Initial output
+   TYPE(IfW_UserWind_MiscVarType),              INTENT(INOUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
 
       ! Error Handling
-   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           ! determines if an error has been encountered
-   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            ! Message about errors
+   INTEGER(IntKi),                              INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                                INTENT(  OUT)  :: ErrMsg            !< Message about errors
 
 
       ! Local Variables
@@ -335,9 +298,9 @@ SUBROUTINE IfW_UserWind_End( PositionXYZ, ParamData, OtherStates, OutData, ErrSt
    CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName )
 
 
-      ! Destroy the state data
+      ! Destroy the misc data
 
-   CALL IfW_UserWind_DestroyOtherState(  OtherStates,   TmpErrStat, TmpErrMsg )
+   CALL IfW_UserWind_DestroyMisc(  MiscVars,   TmpErrStat, TmpErrMsg )
    CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName )
 
 
@@ -346,9 +309,6 @@ SUBROUTINE IfW_UserWind_End( PositionXYZ, ParamData, OtherStates, OutData, ErrSt
    CALL IfW_UserWind_DestroyOutput(      OutData,       TmpErrStat, TmpErrMsg )
    CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName )
 
-
-      ! All the data is gone, so the module is no longer initialized
-   OtherStates%Initialized =  .FALSE.
 
 END SUBROUTINE IfW_UserWind_End
 

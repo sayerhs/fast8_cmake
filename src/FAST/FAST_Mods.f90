@@ -2,7 +2,7 @@
 ! FAST_Prog.f90, FAST_IO.f90, FAST_Types.f90, and FAST_Mods.f90 make up the FAST glue code in the FAST Modularization Framework.
 !..................................................................................................................................
 ! LICENSING
-! Copyright (C) 2013-2015  National Renewable Energy Laboratory
+! Copyright (C) 2013-2016  National Renewable Energy Laboratory
 !
 !    This file is part of FAST.
 !
@@ -19,8 +19,8 @@
 ! limitations under the License.
 !
 !**********************************************************************************************************************************
-! File last committed: $Date: 2015-10-07 20:56:25 -0600 (Wed, 07 Oct 2015) $
-! (File) Revision #: $Rev: 1153 $
+! File last committed: $Date: 2016-04-12 23:36:13 -0600 (Tue, 12 Apr 2016) $
+! (File) Revision #: $Rev: 1260 $
 ! URL: $HeadURL: https://windsvn.nrel.gov/FAST/branches/BJonkman/Source/FAST_Mods.f90 $
 !**********************************************************************************************************************************
 MODULE FAST_ModTypes
@@ -29,7 +29,7 @@ MODULE FAST_ModTypes
    USE FAST_Types
 
    TYPE(ProgDesc), PARAMETER :: FAST_Ver    = &
-                                ProgDesc( 'FAST', 'v8.12.00a-bjj', '6-Oct-2015' ) ! The version number of this module
+                                ProgDesc( 'FAST', 'v8.15.00a-bjj', '12-Apr-2016' ) !< The version number of this module
          
    !..................................................................
    
@@ -37,9 +37,21 @@ MODULE FAST_ModTypes
    INTEGER(IntKi), PARAMETER :: Type_Offshore_Fixed     = 2
    INTEGER(IntKi), PARAMETER :: Type_Offshore_Floating  = 3
    
-   INTEGER(IntKi), PARAMETER :: STATE_CURR              = 1
-   INTEGER(IntKi), PARAMETER :: STATE_PRED              = 2
+   ! state array indexes
+   INTEGER(IntKi), PARAMETER :: STATE_CURR              = 1          !< index for "current" (t_global) states
+   INTEGER(IntKi), PARAMETER :: STATE_PRED              = 2          !< index for "predicted" (t_global_next) states
    
+   ! VTK visualization
+   INTEGER(IntKi), PARAMETER :: VTK_Unknown             = -1         !< unknown option (will produce error)
+   INTEGER(IntKi), PARAMETER :: VTK_None                =  0         !< none (no VTK output)
+   INTEGER(IntKi), PARAMETER :: VTK_InitOnly            =  1         !< VTK output only at initialization
+   INTEGER(IntKi), PARAMETER :: VTK_Animate             =  2         !< VTK animation output
+      
+   INTEGER(IntKi), PARAMETER :: VTK_Surf                =  1         !< output surfaces
+   INTEGER(IntKi), PARAMETER :: VTK_Basic               =  2         !< output minimal number of point/line meshes
+   INTEGER(IntKi), PARAMETER :: VTK_All                 =  3         !< output all point/line meshes
+   INTEGER(IntKi), PARAMETER :: VTK_Old                 =  4         !< output in old binary format (for Matlab viewing)
+   REAL(SiKi),     PARAMETER :: VTK_GroundFactor        =  4.0_SiKi  !< factor for number of rotor radii -- sets width of seabed, waves, and still water in VTK surface visualization
          
    INTEGER(IntKi), PARAMETER :: SizeJac_ED_HD  = 12
    

@@ -1,12 +1,9 @@
 !**********************************************************************************************************************************
 ! The Waves and Waves_Types modules make up a template for creating user-defined calculations in the FAST Modularization 
-! Framework. Wavess_Types will be auto-generated based on a description of the variables for the module.
-!
-! "Waves" should be replaced with the name of your module. Example: HydroDyn
-! "Waves" (in Waves_*) should be replaced with the module name or an abbreviation of it. Example: HD
+! Framework. Waves_Types will be auto-generated based on a description of the variables for the module.
 !..................................................................................................................................
 ! LICENSING
-! Copyright (C) 2013  National Renewable Energy Laboratory
+! Copyright (C) 2013-2015  National Renewable Energy Laboratory
 !
 !    This file is part of Waves.
 !
@@ -23,9 +20,9 @@
 ! limitations under the License.
 !    
 !**********************************************************************************************************************************
-! File last committed: $Date: 2015-09-24 08:28:50 -0600 (Thu, 24 Sep 2015) $
-! (File) Revision #: $Rev: 641 $
-! URL: $HeadURL: https://windsvn.nrel.gov/HydroDyn/branches/UserWaves/Source/Waves.f90 $
+! File last committed: $Date: 2016-03-28 12:43:49 -0600 (Mon, 28 Mar 2016) $
+! (File) Revision #: $Rev: 668 $
+! URL: $HeadURL: https://windsvn.nrel.gov/HydroDyn/trunk/Source/Waves.f90 $
 !**********************************************************************************************************************************
 MODULE Waves
 
@@ -38,35 +35,14 @@ MODULE Waves
    
    PRIVATE
 
-!   INTEGER(IntKi), PARAMETER            :: DataFormatID = 1   ! Update this value if the data types change (used in Waves_Pack)
-   TYPE(ProgDesc), PARAMETER            :: Waves_ProgDesc = ProgDesc( 'Waves', 'v1.00.02', '22-Jun-2014' )
+   TYPE(ProgDesc), PARAMETER            :: Waves_ProgDesc = ProgDesc( 'Waves', 'v1.01.00', '23-Dec-2015' )
 
    
       ! ..... Public Subroutines ...................................................................................................
    PUBLIC :: WavePkShpDefault                     ! Return the default value of the peak shape parameter of the incident wave spectrum
    PUBLIC :: Waves_Init                           ! Initialization routine
    PUBLIC :: Waves_End                            ! Ending routine (includes clean up)
-   
-   PUBLIC :: Waves_UpdateStates                   ! Loose coupling routine for solving for constraint states, integrating 
-                                                    !   continuous states, and updating discrete states
-   PUBLIC :: Waves_CalcOutput                     ! Routine for computing outputs
-   
-   PUBLIC :: Waves_CalcConstrStateResidual        ! Tight coupling routine for returning the constraint state residual
-   PUBLIC :: Waves_CalcContStateDeriv             ! Tight coupling routine for computing derivatives of continuous states
-   PUBLIC :: Waves_UpdateDiscState                ! Tight coupling routine for updating discrete states
-      
-   !PUBLIC :: Waves_JacobianPInput                 ! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete-
-   !                                                 !   (Xd), and constraint-state (Z) equations all with respect to the inputs (u)
-   !PUBLIC :: Waves_JacobianPContState             ! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete-
-   !                                                 !   (Xd), and constraint-state (Z) equations all with respect to the continuous 
-   !                                                 !   states (x)
-   !PUBLIC :: Waves_JacobianPDiscState             ! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete-
-   !                                                 !   (Xd), and constraint-state (Z) equations all with respect to the discrete 
-   !                                                 !   states (xd)
-   !PUBLIC :: Waves_JacobianPConstrState           ! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete-
-   !                                                 !   (Xd), and constraint-state (Z) equations all with respect to the constraint 
-   !                                                 !   states (z)
-   
+            
    
    PRIVATE:: WheelerStretching                    ! This FUNCTION applies the principle of Wheeler stretching to (1-Forward) find the elevation where the wave kinematics are to be applied using Wheeler stretching or (2-Backword)   
    PRIVATE:: BoxMuller
@@ -441,7 +417,7 @@ CONTAINS
 
       ELSE                       ! 0 < k*h <= 89.4; use the shallow water formulation.
 
-         COSHNumOvrCOSHDen = COSH( k*( z + h ) )/COSH( k*h )
+         COSHNumOvrCOSHDen =REAL( COSH( k*( z + h ) ),R8Ki)/COSH( k*h )
 
       END IF
 
@@ -619,16 +595,25 @@ SUBROUTINE StillWaterWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       ALLOCATE ( InitOut%WaveElev   (0:InitOut%NStepWave,InitInp%NWaveElev  ) , STAT=ErrStatTmp )
       IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveElev.',  ErrStat,ErrMsg,'StillWaterWaves_Init')
 
-      ALLOCATE ( InitOut%WaveDynP0  (0:InitOut%NStepWave,InitInp%NWaveKin0  ) , STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveDynP0.', ErrStat,ErrMsg,'StillWaterWaves_Init')
+      ALLOCATE ( InitOut%WaveDynP  (0:InitOut%NStepWave,InitInp%NWaveKin  ) , STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveDynP.', ErrStat,ErrMsg,'StillWaterWaves_Init')
 
-      ALLOCATE ( InitOut%WaveVel0   (0:InitOut%NStepWave,InitInp%NWaveKin0,3) , STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveVel0.',  ErrStat,ErrMsg,'StillWaterWaves_Init')
+      ALLOCATE ( InitOut%WaveVel   (0:InitOut%NStepWave,InitInp%NWaveKin,3) , STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveVel.',  ErrStat,ErrMsg,'StillWaterWaves_Init')
 
-      ALLOCATE ( InitOut%WaveAcc0   (0:InitOut%NStepWave,InitInp%NWaveKin0,3) , STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveAcc0.',  ErrStat,ErrMsg,'StillWaterWaves_Init')
+      ALLOCATE ( InitOut%WaveAcc   (0:InitOut%NStepWave,InitInp%NWaveKin,3) , STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveAcc.',  ErrStat,ErrMsg,'StillWaterWaves_Init')
       
-      ALLOCATE ( InitOut%nodeInWater(0:InitOut%NStepWave,InitInp%NWaveKin0  ) , STAT=ErrStatTmp )
+      ALLOCATE ( InitOut%PWaveDynP0  (0:InitOut%NStepWave,InitInp%NWaveKin  ) , STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%PWaveDynP0.', ErrStat,ErrMsg,'StillWaterWaves_Init')
+
+      ALLOCATE ( InitOut%PWaveVel0   (0:InitOut%NStepWave,InitInp%NWaveKin,3) , STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%PWaveVel0.',  ErrStat,ErrMsg,'StillWaterWaves_Init')
+
+      ALLOCATE ( InitOut%PWaveAcc0   (0:InitOut%NStepWave,InitInp%NWaveKin,3) , STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%PWaveAcc0.',  ErrStat,ErrMsg,'StillWaterWaves_Init')
+      
+      ALLOCATE ( InitOut%nodeInWater(0:InitOut%NStepWave,InitInp%NWaveKin  ) , STAT=ErrStatTmp )
       IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%nodeInWater.',  ErrStat,ErrMsg,'StillWaterWaves_Init')
       
       ALLOCATE ( InitOut%WaveDirArr (0:InitOut%NStepWave2                   ) , STAT=ErrStatTmp )
@@ -639,26 +624,28 @@ SUBROUTINE StillWaterWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 
       InitOut%WaveDOmega = 0.0
       InitOut%WaveTime   = (/ 0.0_DbKi, 1.0_DbKi, 2.0_DbKi /)   ! We must have at least two different time steps in the interpolation
-      InitOut%WaveElevC0(1,0) = 0.0
-      InitOut%WaveElevC0(2,0) = 0.0
+      InitOut%WaveElevC0 = 0.0
       InitOut%WaveElev   = 0.0
-      InitOut%WaveDynP0  = 0.0
-      InitOut%WaveVel0   = 0.0
-      InitOut%WaveAcc0   = 0.0
+      InitOut%PWaveDynP0  = 0.0
+      InitOut%PWaveVel0   = 0.0
+      InitOut%PWaveAcc0   = 0.0
+      InitOut%WaveDynP   = 0.0
+      InitOut%WaveVel    = 0.0
+      InitOut%WaveAcc    = 0.0
       InitOut%WaveDirArr = 0.0
-      InitOut%nodeInWater= .FALSE.
+      
       
       ! Add the current velocities to the wave velocities:
 
-      DO J = 1,InitInp%NWaveKin0   ! Loop through all Morison element nodes where the incident wave kinematics will be computed
+      DO J = 1,InitInp%NWaveKin    ! Loop through all Morison element nodes where the incident wave kinematics will be computed
          
-         InitOut%WaveVel0(:,J,1) =  InitInp%CurrVxi(J)  ! xi-direction
-         InitOut%WaveVel0(:,J,2) =  InitInp%CurrVyi(J)  ! yi-direction
-         IF (    InitInp%WaveKinzi0(J) >= -InitInp%WtrDpth .AND. InitInp%WaveKinzi0(J) <= 0 )  THEN
+         InitOut%WaveVel(:,J,1) =  InitInp%CurrVxi(J)  ! xi-direction
+         InitOut%WaveVel(:,J,2) =  InitInp%CurrVyi(J)  ! yi-direction
+         IF (    InitInp%WaveKinzi(J) >= -InitInp%WtrDpth .AND. InitInp%WaveKinzi(J) <= 0 )  THEN
                
-            InitOut%nodeInWater(:, J) = .TRUE.
+            InitOut%nodeInWater(:, J) = 1
          ELSE
-            InitOut%nodeInWater(:, J) = .FALSE.
+            InitOut%nodeInWater(:, J) = 0
          END IF
       END DO                ! J - All points where the incident wave kinematics will be computed
 
@@ -682,13 +669,13 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
    COMPLEX(SiKi), PARAMETER     :: ImagNmbr = (0.0,1.0)                            ! The imaginary number, SQRT(-1.0)
    COMPLEX(SiKi)                :: ImagOmega                                       ! = ImagNmbr*Omega (rad/s)
    REAL(SiKi), ALLOCATABLE      :: WaveElev0  (:)                                  ! Instantaneous elevation of incident waves at the platform reference point (meters)
-   COMPLEX(SiKi), ALLOCATABLE   :: PWaveAccC0HxiPz0 (:)                            ! Partial derivative of WaveAccC0Hxi(:) with respect to zi at zi = 0 (1/s^2) 
-   COMPLEX(SiKi), ALLOCATABLE   :: PWaveAccC0HyiPz0 (:)                            ! Partial derivative of WaveAccC0Hyi(:) with respect to zi at zi = 0 (1/s^2) 
-   COMPLEX(SiKi), ALLOCATABLE   :: PWaveAccC0VPz0 (:)                              ! Partial derivative of WaveAccC0V  (:) with respect to zi at zi = 0 (1/s^2) 
-   COMPLEX(SiKi), ALLOCATABLE   :: PWaveDynPC0BPz0(:)                              ! Partial derivative of WaveDynPC0B (:) with respect to zi at zi = 0 (N/m  ) 
-   COMPLEX(SiKi), ALLOCATABLE   :: PWaveVelC0HxiPz0 (:)                            ! Partial derivative of WaveVelC0Hxi(:) with respect to zi at zi = 0 (1/s  ) 
-   COMPLEX(SiKi), ALLOCATABLE   :: PWaveVelC0HyiPz0 (:)                            ! Partial derivative of WaveVelC0Hyi(:) with respect to zi at zi = 0 (1/s  ) 
-   COMPLEX(SiKi), ALLOCATABLE   :: PWaveVelC0VPz0 (:)                              ! Partial derivative of WaveVelC0V  (:) with respect to zi at zi = 0 (1/s  ) 
+   !COMPLEX(SiKi), ALLOCATABLE   :: PWaveAccC0HxiPz0 (:,:)                            ! Partial derivative of WaveAccC0Hxi(:) with respect to zi at zi = 0 (1/s^2) 
+   !COMPLEX(SiKi), ALLOCATABLE   :: PWaveAccC0HyiPz0 (:,:)                            ! Partial derivative of WaveAccC0Hyi(:) with respect to zi at zi = 0 (1/s^2) 
+   !COMPLEX(SiKi), ALLOCATABLE   :: PWaveAccC0VPz0 (:,:)                              ! Partial derivative of WaveAccC0V  (:) with respect to zi at zi = 0 (1/s^2) 
+   !COMPLEX(SiKi), ALLOCATABLE   :: PWaveDynPC0BPz0(:,:)                              ! Partial derivative of WaveDynPC0B (:) with respect to zi at zi = 0 (N/m  ) 
+   !COMPLEX(SiKi), ALLOCATABLE   :: PWaveVelC0HxiPz0 (:,:)                            ! Partial derivative of WaveVelC0Hxi(:) with respect to zi at zi = 0 (1/s  ) 
+   !COMPLEX(SiKi), ALLOCATABLE   :: PWaveVelC0HyiPz0 (:,:)                            ! Partial derivative of WaveVelC0Hyi(:) with respect to zi at zi = 0 (1/s  ) 
+   !COMPLEX(SiKi), ALLOCATABLE   :: PWaveVelC0VPz0 (:,:)                              ! Partial derivative of WaveVelC0V  (:) with respect to zi at zi = 0 (1/s  ) 
    COMPLEX(SiKi), ALLOCATABLE   :: WaveAccC0Hxi(:,:)                               ! Discrete Fourier transform of the instantaneous horizontal acceleration in x-direction of incident waves before applying stretching at the zi-coordinates for points (m/s^2)
    COMPLEX(SiKi), ALLOCATABLE   :: WaveAccC0Hyi(:,:)                               ! Discrete Fourier transform of the instantaneous horizontal acceleration in y-direction of incident waves before applying stretching at the zi-coordinates for points (m/s^2)
    COMPLEX(SiKi), ALLOCATABLE   :: WaveAccC0V(:,:)                                 ! Discrete Fourier transform of the instantaneous vertical   acceleration                of incident waves before applying stretching at the zi-coordinates for points (m/s^2)
@@ -715,13 +702,13 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 !UNUSED:   !REAL(SiKi)                   :: OmegaCutOff                                     ! Cut-off frequency or upper frequency limit of the wave spectrum beyond which the wave spectrum is zeroed (rad/s)
    REAL(SiKi)                   :: PCurrVxiPz0                                     ! Partial derivative of CurrVxi        with respect to zi at zi = 0 (1/s  )
    REAL(SiKi)                   :: PCurrVyiPz0                                     ! Partial derivative of CurrVyi        with respect to zi at zi = 0 (1/s  )
-   REAL(SiKi), ALLOCATABLE      :: PWaveAcc0HxiPz0(:)                              ! Partial derivative of WaveAcc0Hxi(:) with respect to zi at zi = 0 (1/s^2)
-   REAL(SiKi), ALLOCATABLE      :: PWaveAcc0HyiPz0(:)                              ! Partial derivative of WaveAcc0Hyi(:) with respect to zi at zi = 0 (1/s^2)
-   REAL(SiKi), ALLOCATABLE      :: PWaveAcc0VPz0  (:)                              ! Partial derivative of WaveAcc0V  (:) with respect to zi at zi = 0 (1/s^2)
-   REAL(SiKi), ALLOCATABLE      :: PWaveDynP0BPz0 (:)                              ! Partial derivative of WaveDynP0B (:) with respect to zi at zi = 0 (N/m  ) 
-   REAL(SiKi), ALLOCATABLE      :: PWaveVel0HxiPz0(:)                              ! Partial derivative of WaveVel0Hxi(:) with respect to zi at zi = 0 (1/s  )
-   REAL(SiKi), ALLOCATABLE      :: PWaveVel0HyiPz0(:)                              ! Partial derivative of WaveVel0Hyi(:) with respect to zi at zi = 0 (1/s  )
-   REAL(SiKi), ALLOCATABLE      :: PWaveVel0VPz0  (:)                              ! Partial derivative of WaveVel0V  (:) with respect to zi at zi = 0 (1/s  )
+   !REAL(SiKi), ALLOCATABLE      :: PWaveAcc0HxiPz0(:,:)                              ! Partial derivative of WaveAcc0Hxi(:) with respect to zi at zi = 0 (1/s^2)
+   !REAL(SiKi), ALLOCATABLE      :: PWaveAcc0HyiPz0(:,:)                              ! Partial derivative of WaveAcc0Hyi(:) with respect to zi at zi = 0 (1/s^2)
+   !REAL(SiKi), ALLOCATABLE      :: PWaveAcc0VPz0  (:,:)                              ! Partial derivative of WaveAcc0V  (:) with respect to zi at zi = 0 (1/s^2)
+   !REAL(SiKi), ALLOCATABLE      :: PWaveDynP0BPz0 (:,:)                              ! Partial derivative of WaveDynP0B (:) with respect to zi at zi = 0 (N/m  ) 
+   !REAL(SiKi), ALLOCATABLE      :: PWaveVel0HxiPz0(:,:)                              ! Partial derivative of WaveVel0Hxi(:) with respect to zi at zi = 0 (1/s  )
+   !REAL(SiKi), ALLOCATABLE      :: PWaveVel0HyiPz0(:,:)                              ! Partial derivative of WaveVel0Hyi(:) with respect to zi at zi = 0 (1/s  )
+   !REAL(SiKi), ALLOCATABLE      :: PWaveVel0VPz0  (:,:)                              ! Partial derivative of WaveVel0V  (:) with respect to zi at zi = 0 (1/s  )
 !   REAL(SiKi)                   :: Slope                                           ! Miscellanous slope used in an interpolation (-)
    REAL(SiKi), PARAMETER        :: SmllNmbr  = 9.999E-4                            ! A small number representing epsilon for taking numerical derivatives.  !bjj: how about using SQRT(EPSILON())?
    REAL(SiKi)                   :: SQRTNStepWave2                                  ! SQRT( NStepWave/2 )
@@ -775,7 +762,7 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 !   INTEGER                      :: I_Orig                                          ! The index of the time step from original (input) part of data
    INTEGER                      :: I_WaveTp                                        ! The index of the frequency component nearest to WaveTp
    INTEGER                      :: J                                               ! Generic index
-   INTEGER                      :: J_Min                                           ! The minimum value of index J such that WaveKinzi0(J) >= -WtrDpth
+   INTEGER                      :: J_Min                                           ! The minimum value of index J such that WaveKinzi(J) >= -WtrDpth
    INTEGER                      :: K                                               ! Generic index
    INTEGER                      :: LastInd                                         ! Index into the arrays saved from the last call as a starting point for this call
    INTEGER                      :: nSeeds                                          ! number of seeds required to initialize the intrinsic random number generator
@@ -833,31 +820,31 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       !   WaveKinzi0Prime(:), points where the incident wave kinematics will be
       !   computed before applying stretching to the instantaneous free surface.
       !   The locations are relative to the mean see level.  Also determine J_Min,
-      !   which is the minimum value of index J such that WaveKinzi0(J) >=
+      !   which is the minimum value of index J such that WaveKinzi(J) >=
       !   -WtrDpth.  These depend on which incident wave kinematics stretching
       !   method is being used:
 
 !JASON: ADD OTHER STRETCHING METHODS HERE, SUCH AS: DELTA STRETCHING (SEE ISO 19901-1) OR CHAKRABARTI STRETCHING (SEE OWTES)???
 !JASON: APPLY STRETCHING TO THE DYNAMIC PRESSURE, IF YOU EVER COMPUTE THAT HERE!!!
 
-      SELECT CASE ( InitInp%WaveStMod )  ! Which model are we using to extrapolate the incident wave kinematics to the instantaneous free surface?
+!      SELECT CASE ( InitInp%WaveStMod )  ! Which model are we using to extrapolate the incident wave kinematics to the instantaneous free surface?
 
-      CASE ( 0 )                 ! None=no stretching.
+!      CASE ( 0 )                 ! None=no stretching.
 
 
       ! Since we have no stretching, NWaveKin0Prime and WaveKinzi0Prime(:) are
       !   equal to the number of, and the zi-coordinates for, the points in the
-      !   WaveKinzi0(:) array between, and including, -WtrDpth and 0.0.
+      !   WaveKinzi(:) array between, and including, -WtrDpth and 0.0.
        
       ! Determine J_Min and NWaveKin0Prime here:
 
          J_Min          = 0
          NWaveKin0Prime = 0
-         DO J = 1,InitInp%NWaveKin0   ! Loop through all mesh points  where the incident wave kinematics will be computed
-               ! NOTE: We test to 0 instead of MSL2SWL because the locations of WaveKinzi0 and WtrDpth have already been adjusted using MSL2SWL
-            IF (    InitInp%WaveKinzi0(J) >= -InitInp%WtrDpth .AND. InitInp%WaveKinzi0(J) <= 0 )  THEN
+         DO J = 1,InitInp%NWaveKin   ! Loop through all mesh points  where the incident wave kinematics will be computed
+               ! NOTE: We test to 0 instead of MSL2SWL because the locations of WaveKinzi and WtrDpth have already been adjusted using MSL2SWL
+           IF (    InitInp%WaveKinzi(J) >= -InitInp%WtrDpth .AND. InitInp%WaveKinzi(J) <= 0 )  THEN
                NWaveKin0Prime = NWaveKin0Prime + 1
-            END IF
+           END IF
          END DO                ! J - All Morison nodes where the incident wave kinematics will be computed
 
 
@@ -878,11 +865,11 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
          
          I = 1
          
-         DO J = 1,InitInp%NWaveKin0 ! Loop through all points where the incident wave kinematics will be computed without stretching
-               ! NOTE: We test to 0 instead of MSL2SWL because the locations of WaveKinzi0 and WtrDpth have already been adjusted using MSL2SWL
-            IF (    InitInp%WaveKinzi0(J) >= -InitInp%WtrDpth .AND. InitInp%WaveKinzi0(J) <= 0 )  THEN
+         DO J = 1,InitInp%NWaveKin ! Loop through all points where the incident wave kinematics will be computed without stretching
+               ! NOTE: We test to 0 instead of MSL2SWL because the locations of WaveKinzi and WtrDpth have already been adjusted using MSL2SWL
+            IF (    InitInp%WaveKinzi(J) >= -InitInp%WtrDpth .AND. InitInp%WaveKinzi(J) <= 0 )  THEN
                
-               WaveKinzi0Prime(I) =  InitInp%WaveKinzi0(J)
+               WaveKinzi0Prime(I) =  InitInp%WaveKinzi(J)
                WaveKinPrimeMap(I) =  J 
                I = I + 1
                
@@ -891,8 +878,7 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
          END DO                   ! J - All points where the incident wave kinematics will be computed without stretching
 
 
-
-      CASE ( 1, 2 )              ! Vertical stretching or extrapolation stretching.
+!      CASE ( 1, 2 )              ! Vertical stretching or extrapolation stretching.
 
 
       ! Vertical stretching says that the wave kinematics above the mean sea level
@@ -909,14 +895,14 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       !   extrapolation stretching say the wave kinematics above the mean sea
       !   level depend only on the mean sea level values.  Consequently,
       !   NWaveKin0Prime and WaveKinzi0Prime(:) are equal to the number of, and
-      !   the zi-coordinates for, the points in the WaveKinzi0(:) array between,
+      !   the zi-coordinates for, the points in the WaveKinzi(:) array between,
       !   and including, -WtrDpth and 0.0; the WaveKinzi0Prime(:) array must also
-      !   include 0.0 even if the WaveKinzi0(:) array does not.
+      !   include 0.0 even if the WaveKinzi(:) array does not.
 
   
 
 
-      CASE ( 3 )                 ! Wheeler stretching.
+!      CASE ( 3 )                 ! Wheeler stretching.
 
 
       ! Wheeler stretching says that wave kinematics calculated using Airy theory
@@ -954,9 +940,9 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       !                   incident waves
       !
       ! Thus, in order to account for Wheeler stretching when computing the wave
-      !   kinematics at each of the NWaveKin0 points along a vertical line passing
+      !   kinematics at each of the NWaveKin points along a vertical line passing
       !   through the platform reference point [defined by the zi-coordinates
-      !   relative to the mean see level as specified in the WaveKinzi0(:) array],
+      !   relative to the mean see level as specified in the WaveKinzi(:) array],
       !   we must first compute the wave kinematics without stretching at
       !   alternative elevations [indicated here by the NWaveKin0Prime-element
       !   array WaveKinzi0Prime(:)]:
@@ -965,7 +951,7 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 
 
 
-      ENDSELECT
+!      ENDSELECT
 
 
 
@@ -1041,7 +1027,6 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       I_WaveTp                = NINT ( TwoPi/(InitOut%WaveDOmega*InitInp%WaveTp) )        ! Compute the index of the frequency component nearest to WaveTp.
       
 
-
          ! Allocate all the arrays we need.
 
       IF ( InitInp%WaveMod /= 5 ) THEN    ! For WaveMod == 5, these are allocated and populated in UserWaveElevations_Init
@@ -1079,26 +1064,26 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       ALLOCATE ( WaveAccC0V        (0:InitOut%NStepWave2 ,NWaveKin0Prime   ), STAT=ErrStatTmp )
       IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveAccC0V.',        ErrStat,ErrMsg,'VariousWaves_Init')
 
-      ALLOCATE ( PWaveDynPC0BPz0   (0:InitOut%NStepWave2                   ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveDynPC0BPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( PWaveVelC0HxiPz0  (0:InitOut%NStepWave2                   ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVelC0HxiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( PWaveVelC0HyiPz0  (0:InitOut%NStepWave2                   ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVelC0HyiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( PWaveVelC0VPz0    (0:InitOut%NStepWave2                   ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVelC0VPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( PWaveAccC0HxiPz0  (0:InitOut%NStepWave2                   ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAccC0HxiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( PWaveAccC0HyiPz0  (0:InitOut%NStepWave2                   ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAccC0HyiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( PWaveAccC0VPz0    (0:InitOut%NStepWave2                   ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAccC0VPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
+      !ALLOCATE ( PWaveDynPC0BPz0   (0:InitOut%NStepWave2 ,InitInp%NWaveKin   ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveDynPC0BPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveVelC0HxiPz0  (0:InitOut%NStepWave2 ,InitInp%NWaveKin   ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVelC0HxiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveVelC0HyiPz0  (0:InitOut%NStepWave2 ,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVelC0HyiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveVelC0VPz0    (0:InitOut%NStepWave2 ,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVelC0VPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveAccC0HxiPz0  (0:InitOut%NStepWave2 ,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAccC0HxiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveAccC0HyiPz0  (0:InitOut%NStepWave2 ,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAccC0HyiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveAccC0VPz0    (0:InitOut%NStepWave2 ,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAccC0VPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
 
       ALLOCATE ( WaveElev0 (0:InitOut%NStepWave-1                          ), STAT=ErrStatTmp )
       IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveElev0.',         ErrStat,ErrMsg,'VariousWaves_Init')
@@ -1127,37 +1112,48 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       ALLOCATE ( WaveAcc0V         (0:InitOut%NStepWave-1,NWaveKin0Prime   ), STAT=ErrStatTmp )
       IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveAcc0V.',         ErrStat,ErrMsg,'VariousWaves_Init')
 
-      ALLOCATE ( PWaveDynP0BPz0    (0:InitOut%NStepWave-1                  ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveDynP0BPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
+      !ALLOCATE ( PWaveDynP0BPz0    (0:InitOut%NStepWave-1,InitInp%NWaveKin   ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveDynP0BPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveVel0HxiPz0   (0:InitOut%NStepWave-1,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVel0HxiPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveVel0HyiPz0   (0:InitOut%NStepWave-1,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVel0HyiPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveVel0VPz0     (0:InitOut%NStepWave-1,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVel0Pz0.',      ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveAcc0HxiPz0   (0:InitOut%NStepWave-1,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAcc0HxiPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveAcc0HyiPz0   (0:InitOut%NStepWave-1,InitInp%NWaveKin ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAcc0HyiPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !ALLOCATE ( PWaveAcc0VPz0     (0:InitOut%NStepWave-1,InitInp%NWaveKin ), STAT=ErrStatTmp )
+      !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAcc0VPz0.',     ErrStat,ErrMsg,'VariousWaves_Init')
 
-      ALLOCATE ( PWaveVel0HxiPz0   (0:InitOut%NStepWave-1                  ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVel0HxiPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      ALLOCATE ( InitOut%WaveDynP (0:InitOut%NStepWave,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveDynP.', ErrStat,ErrMsg,'VariousWaves_Init')
 
-      ALLOCATE ( PWaveVel0HyiPz0   (0:InitOut%NStepWave-1                  ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVel0HyiPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      ALLOCATE ( InitOut%WaveVel  (0:InitOut%NStepWave,InitInp%NWaveKin,3), STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveVel.',  ErrStat,ErrMsg,'VariousWaves_Init')
 
-      ALLOCATE ( PWaveVel0VPz0     (0:InitOut%NStepWave-1                  ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveVel0Pz0.',      ErrStat,ErrMsg,'VariousWaves_Init')
+      ALLOCATE ( InitOut%WaveAcc  (0:InitOut%NStepWave,InitInp%NWaveKin,3), STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveAcc.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      
+      ALLOCATE ( InitOut%PWaveDynP0 (0:InitOut%NStepWave,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%PWaveDynP0.', ErrStat,ErrMsg,'VariousWaves_Init')
 
-      ALLOCATE ( PWaveAcc0HxiPz0   (0:InitOut%NStepWave-1                  ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAcc0HxiPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      ALLOCATE ( InitOut%PWaveVel0  (0:InitOut%NStepWave,InitInp%NWaveKin,3), STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%PWaveVel0.',  ErrStat,ErrMsg,'VariousWaves_Init')
 
-      ALLOCATE ( PWaveAcc0HyiPz0   (0:InitOut%NStepWave-1                  ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAcc0HyiPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      ALLOCATE ( InitOut%PWaveAcc0  (0:InitOut%NStepWave,InitInp%NWaveKin,3), STAT=ErrStatTmp )
+      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%PWaveAcc0.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      
+      
 
-      ALLOCATE ( PWaveAcc0VPz0     (0:InitOut%NStepWave-1                  ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array PWaveAcc0VPz0.',     ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( InitOut%WaveDynP0 (0:InitOut%NStepWave,InitInp%NWaveKin0  ), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveDynP0.', ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( InitOut%WaveVel0  (0:InitOut%NStepWave,InitInp%NWaveKin0,3), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveVel0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( InitOut%WaveAcc0  (0:InitOut%NStepWave,InitInp%NWaveKin0,3), STAT=ErrStatTmp )
-      IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveAcc0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      ALLOCATE ( InitOut%nodeInWater(0:InitOut%NStepWave,InitInp%NWaveKin0  ) , STAT=ErrStatTmp )
+      ALLOCATE ( InitOut%nodeInWater(0:InitOut%NStepWave,InitInp%NWaveKin  ) , STAT=ErrStatTmp )
       IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%nodeInWater.',  ErrStat,ErrMsg,'VariousWaves_Init')
       
          ! Wave direction associated with each frequency
@@ -1194,13 +1190,13 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 
       ! We now need to establish the nodeInWater flag values for all the simulation node for all timesteps, this is an extension which is needed to
       ! support user input wave data.  TODO:  THIS ASSUMES NO WAVE STRETCHING!!!!!!!! GJH 18 Mar 2015
-      DO J = 1,InitInp%NWaveKin0 ! Loop through all points where the incident wave kinematics will be computed without stretching
-            ! NOTE: We test to 0 instead of MSL2SWL because the locations of WaveKinzi0 and WtrDpth have already been adjusted using MSL2SWL
-         IF (    InitInp%WaveKinzi0(J) >= -InitInp%WtrDpth .AND. InitInp%WaveKinzi0(J) <= 0 )  THEN
+      DO J = 1,InitInp%NWaveKin ! Loop through all points where the incident wave kinematics will be computed without stretching
+            ! NOTE: We test to 0 instead of MSL2SWL because the locations of WaveKinzi and WtrDpth have already been adjusted using MSL2SWL
+         IF (    InitInp%WaveKinzi(J) >= -InitInp%WtrDpth .AND. InitInp%WaveKinzi(J) <= 0 )  THEN
                
-            InitOut%nodeInWater(:, J) = .TRUE.
+            InitOut%nodeInWater(:, J) = 1
          ELSE
-            InitOut%nodeInWater(:, J) = .FALSE.
+            InitOut%nodeInWater(:, J) = 0
          END IF
             
       END DO                   ! J - All points where the incident wave kinematics will be computed without stretching
@@ -1380,7 +1376,7 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
          !! 6. Cleanup
          !!
 
-         !> ### Code Implimentation order
+         !> ### Code Implementation order
          !! 1. Discretize the spreading function range and calculate the values of the wave spreading function
 
             ! Now that we have the value for _WaveNDir_ found above, we set the value of _WvSpreadNDir_ to be 15x as
@@ -1472,12 +1468,7 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 
       ENDIF    ! Multi-directional waves in use (InitInp%WaveMultiDir == .TRUE.)
 
-
-
-
-
-
-      
+    
 
       ! JASON: IMPLEMENT EQUATIONS (2.12 - 2.13) IN MY DISSERTATION SO THAT ONE CAN READ IN EXTERNAL WAVE
       !        DATA?<--BETTER YET, IMPLEMENT WaveElevC0 = DFT(WaveElev) WHERE WaveElev CAN BE READ IN AS
@@ -1595,7 +1586,6 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 
       END DO                ! I - The positive frequency components (including zero) of the discrete Fourier transforms
 
-
       !--------------------------------------------------------------------------------
       !=== Multi-Directional Waves ===
       !> ## Assign Wave directions
@@ -1712,29 +1702,44 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       !   before applying stretching at the zi-coordinates for the WAMIT reference point, and all
       !   points where are Morison loads will be calculated.
 
-
          DO J = 1,NWaveKin0Prime ! Loop through all points where the incident wave kinematics will be computed without stretching
 
-            WaveElevxiPrime0 = EXP( -ImagNmbr*WaveNmbr*( InitInp%WaveKinxi0(WaveKinPrimeMap(J))*CosWaveDir(I) + &
-                                                         InitInp%WaveKinyi0(WaveKinPrimeMap(J))*SinWaveDir(I) ))
+            WaveElevxiPrime0 = EXP( -ImagNmbr*WaveNmbr*( InitInp%WaveKinxi(WaveKinPrimeMap(J))*CosWaveDir(I) + &
+               InitInp%WaveKinyi(WaveKinPrimeMap(J))*SinWaveDir(I) ))
+                                                           
             WaveDynPC0 (I,J)     = InitOut%RhoXg*tmpComplex*WaveElevxiPrime0 * COSHNumOvrCOSHDen ( WaveNmbr, InitInp%WtrDpth, WaveKinzi0Prime(J) )       
+             
             WaveVelC0Hxi (I,J)   = CosWaveDir(I)*Omega*tmpComplex* WaveElevxiPrime0 * COSHNumOvrSINHDen ( WaveNmbr, InitInp%WtrDpth, WaveKinzi0Prime(J) )
             WaveVelC0Hyi (I,J)   = SinWaveDir(I)*Omega*tmpComplex* WaveElevxiPrime0 * COSHNumOvrSINHDen ( WaveNmbr, InitInp%WtrDpth, WaveKinzi0Prime(J) )
+             
             WaveVelC0V (I,J)     =           ImagOmega*tmpComplex* WaveElevxiPrime0 * SINHNumOvrSINHDen ( WaveNmbr, InitInp%WtrDpth, WaveKinzi0Prime(J) )
             WaveAccC0Hxi (I,J)   = ImagOmega*        WaveVelC0Hxi (I,J)
+              
             WaveAccC0Hyi (I,J)   = ImagOmega*        WaveVelC0Hyi (I,J)
             WaveAccC0V (I,J)     = ImagOmega*        WaveVelC0V   (I,J)
+         
+            
+         
 
          END DO                   ! J - All points where the incident wave kinematics will be computed without stretching
-
-         PWaveDynPC0BPz0(I )  = InitOut%RhoXg*tmpComplex*WaveNmbr*TANH ( WaveNmbr*InitInp%WtrDpth )
-         PWaveVelC0HxiPz0(I ) = CosWaveDir(I)*Omega*tmpComplex*WaveNmbr
-         PWaveVelC0HyiPz0(I ) = SinWaveDir(I)*Omega*tmpComplex*WaveNmbr
-         PWaveVelC0VPz0(I )   =           ImagOmega*tmpComplex*WaveNmbr*COTH ( WaveNmbr*InitInp%WtrDpth )
-         PWaveAccC0HxiPz0(I ) =      ImagOmega*       PWaveVelC0HxiPz0(I  )
-         PWaveAccC0HyiPz0(I ) =      ImagOmega*       PWaveVelC0HyiPz0(I  )
-         PWaveAccC0VPz0(I )   =      ImagOmega*       PWaveVelC0VPz0(I  )
-
+ 
+!===================================
+! Wave stretching
+   !     DO J = 1,InitInp%NWaveKin
+   !         WaveElevxiPrime0 = EXP( -ImagNmbr*WaveNmbr*( InitInp%WaveKinxi(J)*CosWaveDir(I) + &
+   !                                                      InitInp%WaveKinyi(J)*SinWaveDir(I) ))
+   !! Partial derivatives at zi = 0
+   !         PWaveDynPC0BPz0 (I,J) = InitOut%RhoXg*      tmpComplex*WaveElevxiPrime0*WaveNmbr*TANH ( WaveNmbr*InitInp%WtrDpth )
+   !         PWaveVelC0HxiPz0(I,J) = CosWaveDir(I)*Omega*tmpComplex*WaveElevxiPrime0*WaveNmbr
+   !         PWaveVelC0HyiPz0(I,J) = SinWaveDir(I)*Omega*tmpComplex*WaveElevxiPrime0*WaveNmbr
+   !         PWaveVelC0VPz0  (I,J) =           ImagOmega*tmpComplex*WaveElevxiPrime0*WaveNmbr*COTH ( WaveNmbr*InitInp%WtrDpth )
+   !         PWaveAccC0HxiPz0(I,J) =           ImagOmega*PWaveVelC0HxiPz0(I,J)
+   !         PWaveAccC0HyiPz0(I,J) =           ImagOmega*PWaveVelC0HyiPz0(I,J)
+   !         PWaveAccC0VPz0  (I,J) =           ImagOmega*PWaveVelC0VPz0  (I,J)
+   !      
+   !
+   !     END DO                   ! J - All points where the incident wave kinematics will be computed without stretching
+!===================================
 
       END DO                ! I - The positive frequency components (including zero) of the discrete Fourier transforms
       
@@ -1824,33 +1829,39 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
          END IF
 
       END DO                   ! J - All points where the incident wave kinematics will be computed without stretching
-
-         ! FFT's of the partial derivatives
-      CALL  ApplyFFT_cx (         PWaveDynP0BPz0(:  ),         PWaveDynPC0BPz0(:  ), FFT_Data, ErrStatTmp )
-      CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveDynP0BPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
-
-      CALL  ApplyFFT_cx (         PWaveVel0HxiPz0 (:  ),       PWaveVelC0HxiPz0( : ),FFT_Data, ErrStatTmp )
-      CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveVel0HxiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      CALL  ApplyFFT_cx (         PWaveVel0HyiPz0 (:  ),       PWaveVelC0HyiPz0( : ),FFT_Data, ErrStatTmp )
-      CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveVel0HyiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      CALL  ApplyFFT_cx (         PWaveVel0VPz0 (:  ),         PWaveVelC0VPz0 (:  ), FFT_Data, ErrStatTmp )
-      CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveVel0VPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
-
-      CALL  ApplyFFT_cx (         PWaveAcc0HxiPz0 (:  ),       PWaveAccC0HxiPz0(:  ),FFT_Data, ErrStatTmp )
-      CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveAcc0HxiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      CALL  ApplyFFT_cx (         PWaveAcc0HyiPz0 (:  ),       PWaveAccC0HyiPz0(:  ),FFT_Data, ErrStatTmp )
-      CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveAcc0HyiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
-
-      CALL  ApplyFFT_cx (         PWaveAcc0VPz0 (:  ),         PWaveAccC0VPz0( :  ), FFT_Data, ErrStatTmp )
-      CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveAcc0VPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
-
-      IF ( ErrStat >= AbortErrLev ) THEN
-         CALL CleanUp()
-         RETURN
-      END IF
+ 
+!===================================
+      !DO J = 1,InitInp%NWaveKin ! Loop through all points where the incident wave kinematics will be computed without stretching
+      !   ! FFT's of the partial derivatives
+      !   CALL  ApplyFFT_cx (         PWaveDynP0BPz0(:,J  ),         PWaveDynPC0BPz0(:,J  ), FFT_Data, ErrStatTmp )
+      !   CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveDynP0BPz0.',   ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !   CALL  ApplyFFT_cx (         PWaveVel0HxiPz0 (:,J  ),       PWaveVelC0HxiPz0( :,J ),FFT_Data, ErrStatTmp )
+      !   CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveVel0HxiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !   CALL  ApplyFFT_cx (         PWaveVel0HyiPz0 (:,J  ),       PWaveVelC0HyiPz0( :,J ),FFT_Data, ErrStatTmp )
+      !   CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveVel0HyiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !   CALL  ApplyFFT_cx (         PWaveVel0VPz0 (:,J  ),         PWaveVelC0VPz0 (:,J  ), FFT_Data, ErrStatTmp )
+      !   CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveVel0VPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !   CALL  ApplyFFT_cx (         PWaveAcc0HxiPz0 (:,J  ),       PWaveAccC0HxiPz0(:,J  ),FFT_Data, ErrStatTmp )
+      !   CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveAcc0HxiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !   CALL  ApplyFFT_cx (         PWaveAcc0HyiPz0 (:,J  ),       PWaveAccC0HyiPz0(:,J  ),FFT_Data, ErrStatTmp )
+      !   CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveAcc0HyiPz0.',  ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !   CALL  ApplyFFT_cx (         PWaveAcc0VPz0 (:,J  ),         PWaveAccC0VPz0( :,J  ), FFT_Data, ErrStatTmp )
+      !   CALL  SetErrStat(ErrStatTmp,'Error occured while applying the FFT to PWaveAcc0VPz0.',    ErrStat,ErrMsg,'VariousWaves_Init')
+      !
+      !   IF ( ErrStat >= AbortErrLev ) THEN
+      !      CALL CleanUp()
+      !      RETURN
+      !   END IF
+      !
+      !END DO                   ! J - All points where the incident wave kinematics will be computed without stretching 
+!=================================== 
+       
 
       CALL  ExitFFT(FFT_Data, ErrStatTmp)
       CALL  SetErrStat(ErrStatTmp,'Error occured while cleaning up after the FFTs.', ErrStat,ErrMsg,'VariousWaves_Init')
@@ -1881,8 +1892,8 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 
          END DO                   ! J - All points where the incident wave kinematics will be computed without stretching
 
-         PWaveVel0HxiPz0(:  ) =  PWaveVel0HxiPz0(:  ) + InitInp%PCurrVxiPz0  ! xi-direction
-         PWaveVel0HyiPz0(:  ) =  PWaveVel0HyiPz0(:  ) + InitInp%PCurrVyiPz0  ! yi-direction
+         !PWaveVel0HxiPz0(:  ) =  PWaveVel0HxiPz0(:  ) + InitInp%PCurrVxiPz0  ! xi-direction
+         !PWaveVel0HyiPz0(:  ) =  PWaveVel0HyiPz0(:  ) + InitInp%PCurrVyiPz0  ! yi-direction
 
       ENDIF
 
@@ -1891,39 +1902,51 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       !   WaveAcc0, at the desired locations from the wave kinematics at
       !   alternative locations, WaveDynP0B, WaveVel0Hxi, WaveVel0Hyi, WaveVel0V,
       !   WaveAcc0Hxi, WaveAcc0Hyi, WaveAcc0V, if the elevation of the point defined by
-      !   WaveKinzi0(J) lies between the seabed and the instantaneous free
+      !   WaveKinzi(J) lies between the seabed and the instantaneous free
       !   surface, else set WaveDynP0, WaveVel0, and WaveAcc0 to zero.  This
       !   depends on which incident wave kinematics stretching method is being
       !   used:
 
-      SELECT CASE ( InitInp%WaveStMod )  ! Which model are we using to extrapolate the incident wave kinematics to the instantaneous free surface?
+    !  SELECT CASE ( InitInp%WaveStMod )  ! Which model are we using to extrapolate the incident wave kinematics to the instantaneous free surface?
 
-      CASE ( 0 )                 ! None=no stretching.
+    !  CASE ( 0 )                 ! None=no stretching.
 
 
       ! Since we have no stretching, the wave kinematics between the seabed and
       !   the mean sea level are left unchanged; below the seabed or above the
       !   mean sea level, the wave kinematics are zero:
-         
+
+        
          DO I = 0,InitOut%NStepWave-1       ! Loop through all time steps
             K = 1
-            DO J = 1,InitInp%NWaveKin0      ! Loop through all points where the incident wave kinematics will be computed
-                  ! NOTE: We test to 0 instead of MSL2SWL because the locations of WaveKinzi0 and WtrDpth have already been adjusted using MSL2SWL
-               IF (   ( InitInp%WaveKinzi0(J) < -InitInp%WtrDpth ) .OR. ( InitInp%WaveKinzi0(J) > 0.0          ) )  THEN   ! .TRUE. if the elevation of the point defined by WaveKinzi0(J) lies below the seabed or above mean sea level (exclusive)
+            DO J = 1,InitInp%NWaveKin      ! Loop through all points where the incident wave kinematics will be computed
+               
+               InitOut%PWaveDynP0(I,J  )  = 0.0 ! PWaveDynP0BPz0 (I,J)
+               InitOut%PWaveVel0 (I,J,1)  = 0.0 !PWaveVel0HxiPz0(I,J)
+               InitOut%PWaveVel0 (I,J,2)  = 0.0 !PWaveVel0HyiPz0(I,J)
+               InitOut%PWaveVel0 (I,J,3)  = 0.0 !PWaveVel0VPz0  (I,J)
+               InitOut%PWaveAcc0 (I,J,1)  = 0.0 !PWaveAcc0HxiPz0(I,J)
+               InitOut%PWaveAcc0 (I,J,2)  = 0.0 !PWaveAcc0HyiPz0(I,J)
+               InitOut%PWaveAcc0 (I,J,3)  = 0.0 !PWaveAcc0VPz0  (I,J)
+                  
+                  
+                  ! NOTE: We test to 0 instead of MSL2SWL because the locations of WaveKinzi and WtrDpth have already been adjusted using MSL2SWL
+               IF (   ( InitInp%WaveKinzi(J) < -InitInp%WtrDpth ) .OR. ( InitInp%WaveKinzi(J) > 0.0          ) )  THEN   ! .TRUE. if the elevation of the point defined by WaveKinzi(J) lies below the seabed or above mean sea level (exclusive)
 
-                  InitOut%WaveDynP0(I,J  )  = 0.0
-                  InitOut%WaveVel0 (I,J,:)  = 0.0
-                  InitOut%WaveAcc0 (I,J,:)  = 0.0
+                  InitOut%WaveDynP(I,J  )  = 0.0
+                  InitOut%WaveVel (I,J,:)  = 0.0
+                  InitOut%WaveAcc (I,J,:)  = 0.0        
 
-               ELSE                                                                                 ! The elevation of the point defined by WaveKinzi0(J) must lie between the seabed and the mean sea level (inclusive)
+               ELSE                                                                                 ! The elevation of the point defined by WaveKinzi(J) must lie between the seabed and the mean sea level (inclusive)
 
-                  InitOut%WaveDynP0(I,J  )  = WaveDynP0B (I,K     )
-                  InitOut%WaveVel0 (I,J,1)  = WaveVel0Hxi(I,K     )
-                  InitOut%WaveVel0 (I,J,2)  = WaveVel0Hyi(I,K     )
-                  InitOut%WaveVel0 (I,J,3)  = WaveVel0V  (I,K     )
-                  InitOut%WaveAcc0 (I,J,1)  = WaveAcc0Hxi(I,K     )
-                  InitOut%WaveAcc0 (I,J,2)  = WaveAcc0Hyi(I,K     )
-                  InitOut%WaveAcc0 (I,J,3)  = WaveAcc0V  (I,K     )
+                  InitOut%WaveDynP(I,J  )  = WaveDynP0B (I,K)
+                  InitOut%WaveVel (I,J,1)  = WaveVel0Hxi(I,K)
+                  InitOut%WaveVel (I,J,2)  = WaveVel0Hyi(I,K)
+                  InitOut%WaveVel (I,J,3)  = WaveVel0V  (I,K)
+                  InitOut%WaveAcc (I,J,1)  = WaveAcc0Hxi(I,K)
+                  InitOut%WaveAcc (I,J,2)  = WaveAcc0Hyi(I,K)
+                  InitOut%WaveAcc (I,J,3)  = WaveAcc0V  (I,K)
+                  
                   K = K + 1
                END IF
 
@@ -1932,8 +1955,7 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
          END DO                      ! I - All time steps
 
 
-
-      CASE ( 1 )                 ! Vertical stretching.
+    !  CASE ( 1 )                 ! Vertical stretching.
 
 
       ! Vertical stretching says that the wave kinematics above the mean sea level
@@ -1944,7 +1966,7 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 
 
 
-      CASE ( 2 )                 ! Extrapolation stretching.
+    !  CASE ( 2 )                 ! Extrapolation stretching.
 
 
       ! Extrapolation stretching uses a linear Taylor expansion of the wave
@@ -1956,7 +1978,7 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
 
 
 
-      CASE ( 3 )                 ! Wheeler stretching.
+    !  CASE ( 3 )                 ! Wheeler stretching.
 
 
       ! Wheeler stretching says that wave kinematics calculated using Airy theory
@@ -1972,17 +1994,20 @@ SUBROUTINE VariousWaves_Init ( InitInp, InitOut, ErrStat, ErrMsg )
       !   instantaneous wave elevation--these new elevations are stored in the
       !   WaveKinzi0St(:) array.  Next, we interpolate the wave kinematics
       !   computed without stretching to the desired elevations (defined in the
-      !   WaveKinzi0(:) array) using the WaveKinzi0St(:) array:
+      !   WaveKinzi(:) array) using the WaveKinzi0St(:) array:
 
       
 
 
-      ENDSELECT
+  !    ENDSELECT
 
       ! Set the ending timestep to the same as the first timestep
-      InitOut%WaveDynP0(InitOut%NStepWave,:  )  = InitOut%WaveDynP0(0,:  )
-      InitOut%WaveVel0 (InitOut%NStepWave,:,:)  = InitOut%WaveVel0 (0,:,:)
-      InitOut%WaveAcc0 (InitOut%NStepWave,:,:)  = InitOut%WaveAcc0 (0,:,:)
+      InitOut%WaveDynP(InitOut%NStepWave,:  )  = InitOut%WaveDynP(0,:  )
+      InitOut%WaveVel (InitOut%NStepWave,:,:)  = InitOut%WaveVel (0,:,:)
+      InitOut%WaveAcc (InitOut%NStepWave,:,:)  = InitOut%WaveAcc (0,:,:)
+      InitOut%PWaveDynP0(InitOut%NStepWave,:  )  = InitOut%PWaveDynP0(0,:  )
+      InitOut%PWaveVel0 (InitOut%NStepWave,:,:)  = InitOut%PWaveVel0 (0,:,:)
+      InitOut%PWaveAcc0 (InitOut%NStepWave,:,:)  = InitOut%PWaveAcc0 (0,:,:)
 
 
 
@@ -2041,20 +2066,20 @@ CONTAINS
       IF (ALLOCATED( GHWaveDynP ))        DEALLOCATE( GHWaveDynP,       STAT=ErrStatTmp)
       IF (ALLOCATED( GHWaveVel ))         DEALLOCATE( GHWaveVel,        STAT=ErrStatTmp)
       IF (ALLOCATED( GHWvDpth ))          DEALLOCATE( GHWvDpth,         STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveAcc0HxiPz0 ))   DEALLOCATE( PWaveAcc0HxiPz0,  STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveAcc0HyiPz0 ))   DEALLOCATE( PWaveAcc0HyiPz0,  STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveAcc0VPz0 ))     DEALLOCATE( PWaveAcc0VPz0,    STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveAccC0HxiPz0 ))  DEALLOCATE( PWaveAccC0HxiPz0, STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveAccC0HyiPz0 ))  DEALLOCATE( PWaveAccC0HyiPz0, STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveAccC0VPz0 ))    DEALLOCATE( PWaveAccC0VPz0,   STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveDynP0BPz0 ))    DEALLOCATE( PWaveDynP0BPz0,   STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveDynPC0BPz0 ))   DEALLOCATE( PWaveDynPC0BPz0,  STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveVel0HxiPz0 ))   DEALLOCATE( PWaveVel0HxiPz0,  STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveVel0HyiPz0 ))   DEALLOCATE( PWaveVel0HyiPz0,  STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveVel0VPz0 ))     DEALLOCATE( PWaveVel0VPz0,    STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveVelC0HxiPz0 ))  DEALLOCATE( PWaveVelC0HxiPz0, STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveVelC0HyiPz0 ))  DEALLOCATE( PWaveVelC0HyiPz0, STAT=ErrStatTmp)
-      IF (ALLOCATED( PWaveVelC0VPz0 ))    DEALLOCATE( PWaveVelC0VPz0,   STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveAcc0HxiPz0 ))   DEALLOCATE( PWaveAcc0HxiPz0,  STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveAcc0HyiPz0 ))   DEALLOCATE( PWaveAcc0HyiPz0,  STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveAcc0VPz0 ))     DEALLOCATE( PWaveAcc0VPz0,    STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveAccC0HxiPz0 ))  DEALLOCATE( PWaveAccC0HxiPz0, STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveAccC0HyiPz0 ))  DEALLOCATE( PWaveAccC0HyiPz0, STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveAccC0VPz0 ))    DEALLOCATE( PWaveAccC0VPz0,   STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveDynP0BPz0 ))    DEALLOCATE( PWaveDynP0BPz0,   STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveDynPC0BPz0 ))   DEALLOCATE( PWaveDynPC0BPz0,  STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveVel0HxiPz0 ))   DEALLOCATE( PWaveVel0HxiPz0,  STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveVel0HyiPz0 ))   DEALLOCATE( PWaveVel0HyiPz0,  STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveVel0VPz0 ))     DEALLOCATE( PWaveVel0VPz0,    STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveVelC0HxiPz0 ))  DEALLOCATE( PWaveVelC0HxiPz0, STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveVelC0HyiPz0 ))  DEALLOCATE( PWaveVelC0HyiPz0, STAT=ErrStatTmp)
+      !IF (ALLOCATED( PWaveVelC0VPz0 ))    DEALLOCATE( PWaveVelC0VPz0,   STAT=ErrStatTmp)
       IF (ALLOCATED( WaveAcc0Hxi ))       DEALLOCATE( WaveAcc0Hxi,      STAT=ErrStatTmp)
       IF (ALLOCATED( WaveAcc0Hyi ))       DEALLOCATE( WaveAcc0Hyi,      STAT=ErrStatTmp)
       IF (ALLOCATED( WaveAcc0V ))         DEALLOCATE( WaveAcc0V,        STAT=ErrStatTmp)
@@ -2084,37 +2109,38 @@ END SUBROUTINE VariousWaves_Init
 
 
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE Waves_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, InitOut, ErrStat, ErrMsg )
-! This routine is called at the start of the simulation to perform initialization steps. 
-! The parameters are set here and not changed during the simulation.
-! The initial states and initial guess for the input are defined.
+!> This routine is called at the start of the simulation to perform initialization steps. 
+!! The parameters are set here and not changed during the simulation.
+!! The initial states and initial guess for the input are defined.
+SUBROUTINE Waves_Init( InitInp, u, p, x, xd, z, OtherState, y, m, Interval, InitOut, ErrStat, ErrMsg )
 !..................................................................................................................................
 
-      TYPE(Waves_InitInputType),       INTENT(IN   )  :: InitInp     ! Input data for initialization routine
-      TYPE(Waves_InputType),           INTENT(  OUT)  :: u           ! An initial guess for the input; input mesh must be defined
-      TYPE(Waves_ParameterType),       INTENT(  OUT)  :: p           ! Parameters      
-      TYPE(Waves_ContinuousStateType), INTENT(  OUT)  :: x           ! Initial continuous states
-      TYPE(Waves_DiscreteStateType),   INTENT(  OUT)  :: xd          ! Initial discrete states
-      TYPE(Waves_ConstraintStateType), INTENT(  OUT)  :: z           ! Initial guess of the constraint states
-      TYPE(Waves_OtherStateType),      INTENT(  OUT)  :: OtherState  ! Initial other/optimization states            
-      TYPE(Waves_OutputType),          INTENT(  OUT)  :: y           ! Initial system outputs (outputs are not calculated; 
-                                                                     !   only the output mesh is initialized)
-      REAL(DbKi),                      INTENT(INOUT)  :: Interval    ! Coupling interval in seconds: the rate that 
-                                                                     !   (1) Waves_UpdateStates() is called in loose coupling &
-                                                                     !   (2) Waves_UpdateDiscState() is called in tight coupling.
-                                                                     !   Input is the suggested time from the glue code; 
-                                                                     !   Output is the actual coupling interval that will be used 
-                                                                     !   by the glue code.
-      TYPE(Waves_InitOutputType),      INTENT(  OUT)  :: InitOut     ! Output for initialization routine
-      INTEGER(IntKi),                  INTENT(  OUT)  :: ErrStat     ! Error status of the operation
-      CHARACTER(*),                    INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
+      TYPE(Waves_InitInputType),       INTENT(INOUT)  :: InitInp     !< Input data for initialization routine !NOTE: We are making this INOUT so that we can overwrite the WaveKinzi with zeros for wave stretching calculations
+      TYPE(Waves_InputType),           INTENT(  OUT)  :: u           !< An initial guess for the input; input mesh must be defined
+      TYPE(Waves_ParameterType),       INTENT(  OUT)  :: p           !< Parameters      
+      TYPE(Waves_ContinuousStateType), INTENT(  OUT)  :: x           !< Initial continuous states
+      TYPE(Waves_DiscreteStateType),   INTENT(  OUT)  :: xd          !< Initial discrete states
+      TYPE(Waves_ConstraintStateType), INTENT(  OUT)  :: z           !< Initial guess of the constraint states
+      TYPE(Waves_OtherStateType),      INTENT(  OUT)  :: OtherState  !< Initial other states            
+      TYPE(Waves_OutputType),          INTENT(  OUT)  :: y           !< Initial system outputs (outputs are not calculated; 
+                                                                     !!   only the output mesh is initialized)
+      TYPE(Waves_MiscVarType),         INTENT(  OUT)  :: m           !< Initial misc/optimization variables            
+      REAL(DbKi),                      INTENT(INOUT)  :: Interval    !< Coupling interval in seconds: the rate that 
+                                                                     !!   (1) Waves_UpdateStates() is called in loose coupling &
+                                                                     !!   (2) Waves_UpdateDiscState() is called in tight coupling.
+                                                                     !!   Input is the suggested time from the glue code; 
+                                                                     !!   Output is the actual coupling interval that will be used 
+                                                                     !!   by the glue code.
+      TYPE(Waves_InitOutputType),      INTENT(  OUT)  :: InitOut     !< Output for initialization routine
+      INTEGER(IntKi),                  INTENT(  OUT)  :: ErrStat     !< Error status of the operation
+      CHARACTER(*),                    INTENT(  OUT)  :: ErrMsg      !< Error message if ErrStat /= ErrID_None
 
       
       
          ! Local Variables:
       INTEGER(IntKi)                                  :: ErrStatTmp  ! Temporary error status for processing
       CHARACTER(1024)                                 :: ErrMsgTmp   ! Temporary error message for procesing
-
+!      REAL(ReKi), ALLOCATABLE                         :: tmpWaveKinzi(:)
      
 !      TYPE(FFT_DataType)           :: FFT_Data                                        ! the instance of the FFT module we're using
 
@@ -2164,9 +2190,63 @@ SUBROUTINE Waves_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, InitOut
                
       CASE ( 1, 2, 3, 4, 10 )       ! 1, 10: Plane progressive (regular) wave, 2: JONSWAP/Pierson-Moskowitz spectrum (irregular) wave, 3: white-noise, or 4: user-defined spectrum (irregular) wave.
       
+         ! To correctly perform stretching we need wave kinematics at (xi,yi,0) for all nodes where kinematics are computed.
+         ! This could all be done with the same call to VariousWaves_Init, but then we would have to allocate double the number of temporary data
+         ! structures for this extra set of locations.
+         ! INSTEAD, to save memory (at the expense of time) we are going to call VariousWaves_Init, twice!  Once for the (xi,yi,zi) locations
+         ! and then again for the (xi,yi,0) locations.  
+         ! To accomplish this, we need to schuffle some of our data structures or create temporary copies
+         
+         !   ! Allocate the temporary storage array for the WvKinxi
+         !ALLOCATE ( tmpWaveKinzi(InitInp%NWaveKin), STAT = ErrStatTmp )
+         !IF ( ErrStatTmp /= ErrID_None ) THEN
+         !   CALL SetErrStat( ErrID_Fatal,'Error allocating space for tmpWaveKinzi array.',ErrStat,ErrMsg,'Waves_Init')
+         !   RETURN
+         !END IF
+         !!DO I = 1,InitInp%NWaveKin
+         !!   tmpWaveKinzi(I) = InitInp%WaveKinzi(I)
+         !!   InitInp%WaveKinzi(I) = 0.0_ReKi         ! Force all zi coordinates to 0.0 for this version of the Waves initialization
+         !! END DO
+         !   tmpWaveKinzi = InitInp%WaveKinzi
+         !   InitInp%WaveKinzi = 0.0_ReKi         ! Force all zi coordinates to 0.0 for this version of the Waves initialization
+         !
+         !CALL VariousWaves_Init( InitInp, InitOut, ErrStatTmp, ErrMsgTmp )
+         !   CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_Init')
+         !   IF ( ErrStat >= AbortErrLev ) RETURN
+         !   
+         !ALLOCATE ( InitOut%WaveDynP0 (0:InitOut%NStepWave,InitInp%NWaveKin  ), STAT=ErrStatTmp )
+         !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveDynP0.', ErrStat,ErrMsg,'Waves_Init')
+         !
+         !ALLOCATE ( InitOut%WaveVel0  (0:InitOut%NStepWave,InitInp%NWaveKin,3), STAT=ErrStatTmp )
+         !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveVel0.',  ErrStat,ErrMsg,'Waves_Init')
+         !
+         !ALLOCATE ( InitOut%WaveAcc0  (0:InitOut%NStepWave,InitInp%NWaveKin,3), STAT=ErrStatTmp )
+         !IF (ErrStatTmp /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array InitOut%WaveAcc0.',  ErrStat,ErrMsg,'Waves_Init')
+         !
+         !IF ( ErrStat >= AbortErrLev ) RETURN
+         !
+         !   ! Copy the init output arrays into the MSL versions
+         !InitOut%WaveDynP0  =      InitOut%WaveDynP     
+         !InitOut%WaveAcc0   =      InitOut%WaveAcc  
+         !InitOut%WaveVel0   =      InitOut%WaveVel
+         !
+         !   ! Reset the zi locations
+         !InitInp%WaveKinzi  =      tmpWaveKinzi
+         !
+         !   ! Deallocate data which will be allocated again within the Init routine
+         !DEALLOCATE( InitOut%WaveDynP )
+         !DEALLOCATE( InitOut%WaveAcc )
+         !DEALLOCATE( InitOut%WaveVel )
+         !DEALLOCATE( InitOut%WaveElevC0)   
+         !DEALLOCATE( InitOut%WaveDirArr)   
+         !DEALLOCATE( InitOut%WaveElev  )
+         !DEALLOCATE( InitOut%WaveTime  )
+         !DEALLOCATE( InitOut%NodeInWater  )
+         
+            ! Now call the init with all the zi locations for the Morrison member nodes 
          CALL VariousWaves_Init( InitInp, InitOut, ErrStatTmp, ErrMsgTmp )
-         CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_Init')
-         IF ( ErrStat >= AbortErrLev ) RETURN
+            CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_Init')
+            IF ( ErrStat >= AbortErrLev ) RETURN
 
         
       CASE ( 5 )              ! User-supplied wave elevation time history; HD derives full wave kinematics from this elevation time series data.   
@@ -2197,6 +2277,7 @@ SUBROUTINE Waves_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, InitOut
    xd%DummyDiscState = 0.0
    z%DummyConstrState = 0.0
    OtherState%DummyOtherState = 0
+   m%DummyMiscVar = 0
    y%DummyOutput = 0.0
       
       
@@ -2205,31 +2286,30 @@ END SUBROUTINE Waves_Init
 
 
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE Waves_End( u, p, x, xd, z, OtherState, y, ErrStat, ErrMsg )
-! This routine is called at the end of the simulation.
+!> This routine is called at the end of the simulation.
+SUBROUTINE Waves_End( u, p, x, xd, z, OtherState, y, m, ErrStat, ErrMsg )
 !..................................................................................................................................
 
-      TYPE(Waves_InputType),           INTENT(INOUT)  :: u           ! System inputs
-      TYPE(Waves_ParameterType),       INTENT(INOUT)  :: p           ! Parameters     
-      TYPE(Waves_ContinuousStateType), INTENT(INOUT)  :: x           ! Continuous states
-      TYPE(Waves_DiscreteStateType),   INTENT(INOUT)  :: xd          ! Discrete states
-      TYPE(Waves_ConstraintStateType), INTENT(INOUT)  :: z           ! Constraint states
-      TYPE(Waves_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states            
-      TYPE(Waves_OutputType),          INTENT(INOUT)  :: y           ! System outputs
-      INTEGER(IntKi),                    INTENT(  OUT)  :: ErrStat     ! Error status of the operation
-      CHARACTER(*),                      INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
+      TYPE(Waves_InputType),           INTENT(INOUT)  :: u           !< System inputs
+      TYPE(Waves_ParameterType),       INTENT(INOUT)  :: p           !< Parameters     
+      TYPE(Waves_ContinuousStateType), INTENT(INOUT)  :: x           !< Continuous states
+      TYPE(Waves_DiscreteStateType),   INTENT(INOUT)  :: xd          !< Discrete states
+      TYPE(Waves_ConstraintStateType), INTENT(INOUT)  :: z           !< Constraint states
+      TYPE(Waves_OtherStateType),      INTENT(INOUT)  :: OtherState  !< Other states            
+      TYPE(Waves_OutputType),          INTENT(INOUT)  :: y           !< System outputs
+      TYPE(Waves_MiscVarType),         INTENT(INOUT)  :: m           !< Misc/optimization variables            
+      INTEGER(IntKi),                  INTENT(  OUT)  :: ErrStat     !< Error status of the operation
+      CHARACTER(*),                    INTENT(  OUT)  :: ErrMsg      !< Error message if ErrStat /= ErrID_None
 
          ! Local error handling variables
       INTEGER(IntKi)                                  :: ErrStatTmp
-      CHARACTER(1024)                                 :: ErrMsgTmp
-
+      CHARACTER(ErrMsgLen)                            :: ErrMsgTmp
+      CHARACTER(*), PARAMETER                         :: RoutineName = 'Waves_End'
 
          ! Initialize ErrStat
          
       ErrStat = ErrID_None         
-      ErrStatTmp  = ErrID_None
       ErrMsg  = ""               
-      ErrMsgTmp   = ""
       
       
          ! Place any last minute operations or calculations here:
@@ -2242,538 +2322,39 @@ SUBROUTINE Waves_End( u, p, x, xd, z, OtherState, y, ErrStat, ErrMsg )
          ! Destroy the input data:
          
       CALL Waves_DestroyInput( u, ErrStatTmp, ErrMsgTmp )
-      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_End')
+      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,RoutineName)
 
 
          ! Destroy the parameter data:
          
       CALL Waves_DestroyParam( p, ErrStatTmp, ErrMsgTmp )
-      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_End')
+      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,RoutineName)
 
 
          ! Destroy the state data:
          
       CALL Waves_DestroyContState(   x,           ErrStatTmp, ErrMsgTmp )
-      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_End')
+      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,RoutineName)
       CALL Waves_DestroyDiscState(   xd,          ErrStatTmp, ErrMsgTmp )
-      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_End')
+      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,RoutineName)
       CALL Waves_DestroyConstrState( z,           ErrStatTmp, ErrMsgTmp )
-      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_End')
+      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,RoutineName)
       CALL Waves_DestroyOtherState(  OtherState,  ErrStatTmp, ErrMsgTmp )
-      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_End')
-         
+      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,RoutineName)
+
+      CALL Waves_DestroyMisc(  m,  ErrStatTmp, ErrMsgTmp )
+      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,RoutineName)
+      
 
          ! Destroy the output data:
          
       CALL Waves_DestroyOutput( y, ErrStatTmp, ErrMsgTmp )
-      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,'Waves_End')
+      CALL  SetErrStat(ErrStatTmp,ErrMsgTmp,ErrStat,ErrMsg,RoutineName)
 
 
       
 
 END SUBROUTINE Waves_End
-!----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE Waves_UpdateStates( Time, u, p, x, xd, z, OtherState, ErrStat, ErrMsg )
-! Loose coupling routine for solving for constraint states, integrating continuous states, and updating discrete states
-! Constraint states are solved for input Time; Continuous and discrete states are updated for Time + Interval
-!..................................................................................................................................
-   
-      REAL(DbKi),                       INTENT(IN   ) :: Time        ! Current simulation time in seconds
-      TYPE(Waves_InputType),            INTENT(IN   ) :: u           ! Inputs at Time                    
-      TYPE(Waves_ParameterType),        INTENT(IN   ) :: p           ! Parameters                              
-      TYPE(Waves_ContinuousStateType),  INTENT(INOUT) :: x           ! Input: Continuous states at Time; 
-                                                                       !   Output: Continuous states at Time + Interval
-      TYPE(Waves_DiscreteStateType),    INTENT(INOUT) :: xd          ! Input: Discrete states at Time; 
-                                                                      !   Output: Discrete states at Time  + Interval
-      TYPE(Waves_ConstraintStateType),  INTENT(INOUT) :: z           ! Input: Initial guess of constraint states at Time;
-                                                                      !   Output: Constraint states at Time
-      TYPE(Waves_OtherStateType),       INTENT(INOUT) :: OtherState  ! Other/optimization states
-      INTEGER(IntKi),                   INTENT(  OUT) :: ErrStat     ! Error status of the operation     
-      CHARACTER(*),                     INTENT(  OUT) :: ErrMsg      ! Error message if ErrStat /= ErrID_None
-
-         ! Local variables
-         
-      TYPE(Waves_ContinuousStateType)                 :: dxdt        ! Continuous state derivatives at Time
-      TYPE(Waves_ConstraintStateType)                 :: z_Residual  ! Residual of the constraint state equations (Z)
-         
-      INTEGER(IntKi)                                  :: ErrStatTmp  ! Temporary Error status  for calls
-      CHARACTER(1024)                                 :: ErrMsgTmp   ! Temporary Error message for calls
-                        
-         ! Initialize ErrStat
-         
-      ErrStat     = ErrID_None         
-      ErrMsg      = ""               
-      
-      ErrStatTmp  = ErrID_None         
-      ErrMsgTmp   = ""               
-           
-      
-         ! Solve for the constraint states (z) here:
-                           
-         ! Check if the z guess is correct and update z with a new guess.
-         ! Iterate until the value is within a given tolerance. 
-                                    
-      CALL Waves_CalcConstrStateResidual( Time, u, p, x, xd, z, OtherState, z_Residual, ErrStatTmp, ErrMsgTmp )
-      CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates' )
-      IF ( ErrStat >= AbortErrLev ) THEN
-         CALL Waves_DestroyConstrState( z_Residual, ErrStatTmp, ErrMsgTmp)
-         CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates' )
-         RETURN      
-      END IF
-         
-      ! DO WHILE ( z_Residual% > tolerance )
-      !
-      !  z = 
-      !
-      !  CALL Waves_CalcConstrStateResidual( Time, u, p, x, xd, z, OtherState, z_Residual, ErrStatTmp, ErrMsgTmp )
-      !  CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates' )
-      !  IF ( ErrStat >= AbortErrLev ) THEN      
-      !     CALL Waves_DestroyConstrState( z_Residual, ErrStatTmp, ErrMsgTmp)
-      !     CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates' )
-      !     RETURN      
-      !  END IF
-      !           
-      ! END DO         
-      
-      
-         ! Destroy z_Residual because it is not necessary for the rest of the subroutine:
-            
-      CALL Waves_DestroyConstrState( z_Residual, ErrStatTmp, ErrMsgTmp)
-      CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates' )
-      IF ( ErrStat >= AbortErrLev ) RETURN      
-         
-         
-         
-         ! Get first time derivatives of continuous states (dxdt):
-      
-      CALL Waves_CalcContStateDeriv( Time, u, p, x, xd, z, OtherState, dxdt, ErrStatTmp, ErrMsgTmp )
-      CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates' )
-      IF ( ErrStat >= AbortErrLev ) THEN      
-         CALL Waves_DestroyContState( dxdt, ErrStatTmp, ErrMsgTmp)
-         CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates')
-         RETURN
-      END IF
-               
-               
-         ! Update discrete states:
-         !   Note that xd [discrete state] is changed in Waves_UpdateDiscState(), so Waves_CalcOutput(),  
-         !   Waves_CalcContStateDeriv(), and Waves_CalcConstrStates() must be called first (see above).
-      
-      CALL Waves_UpdateDiscState(Time, u, p, x, xd, z, OtherState, ErrStatTmp, ErrMsgTmp )   
-      CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates' )
-      IF ( ErrStat >= AbortErrLev ) THEN      
-         CALL Waves_DestroyContState( dxdt, ErrStatTmp, ErrMsgTmp)
-         CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates' )
-         RETURN      
-      END IF
-         
-         
-         ! Integrate (update) continuous states (x) here:
-         
-      !x = function of dxdt and x
-
-
-         ! Destroy dxdt because it is not necessary for the rest of the subroutine
-            
-      CALL Waves_DestroyContState( dxdt, ErrStatTmp, ErrMsgTmp)
-      CALL SetErrStat( ErrStatTmp, ErrMsgTmp, ErrStat, ErrMsg, 'Waves_UpdateStates' )
-      IF ( ErrStat >= AbortErrLev ) RETURN      
-     
-   
-      
-END SUBROUTINE Waves_UpdateStates
-!----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE Waves_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, ErrMsg )   
-! Routine for computing outputs, used in both loose and tight coupling.
-!..................................................................................................................................
-   
-      REAL(DbKi),                      INTENT(IN   )  :: Time        ! Current simulation time in seconds
-      TYPE(Waves_InputType),           INTENT(IN   )  :: u           ! Inputs at Time
-      TYPE(Waves_ParameterType),       INTENT(IN   )  :: p           ! Parameters
-      TYPE(Waves_ContinuousStateType), INTENT(IN   )  :: x           ! Continuous states at Time
-      TYPE(Waves_DiscreteStateType),   INTENT(IN   )  :: xd          ! Discrete states at Time
-      TYPE(Waves_ConstraintStateType), INTENT(IN   )  :: z           ! Constraint states at Time
-      TYPE(Waves_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states
-      TYPE(Waves_OutputType),          INTENT(INOUT)  :: y           ! Outputs computed at Time (Input only so that mesh con-
-                                                                     !   nectivity information does not have to be recalculated)
-      INTEGER(IntKi),                  INTENT(  OUT)  :: ErrStat     ! Error status of the operation
-      CHARACTER(*),                    INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
-
-      
-         ! Initialize ErrStat
-         
-      ErrStat = ErrID_None         
-      ErrMsg  = ""               
-      
-      
-         ! Compute outputs here:
-      y%DummyOutput    = 2.0_SiKi
-
-     
-               
-
-END SUBROUTINE Waves_CalcOutput
-!----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE Waves_CalcContStateDeriv( Time, u, p, x, xd, z, OtherState, dxdt, ErrStat, ErrMsg )  
-! Tight coupling routine for computing derivatives of continuous states
-!..................................................................................................................................
-   
-      REAL(DbKi),                        INTENT(IN   )  :: Time        ! Current simulation time in seconds
-      TYPE(Waves_InputType),           INTENT(IN   )  :: u           ! Inputs at Time                    
-      TYPE(Waves_ParameterType),       INTENT(IN   )  :: p           ! Parameters                             
-      TYPE(Waves_ContinuousStateType), INTENT(IN   )  :: x           ! Continuous states at Time
-      TYPE(Waves_DiscreteStateType),   INTENT(IN   )  :: xd          ! Discrete states at Time
-      TYPE(Waves_ConstraintStateType), INTENT(IN   )  :: z           ! Constraint states at Time
-      TYPE(Waves_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states                    
-      TYPE(Waves_ContinuousStateType), INTENT(  OUT)  :: dxdt        ! Continuous state derivatives at Time
-      INTEGER(IntKi),                    INTENT(  OUT)  :: ErrStat     ! Error status of the operation     
-      CHARACTER(*),                      INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
-
-               
-         ! Initialize ErrStat
-         
-      ErrStat = ErrID_None         
-      ErrMsg  = ""               
-      
-      
-         ! Compute the first time derivatives of the continuous states here:
-      
-      dxdt%DummyContState = 0.0_SiKi
-         
-
-END SUBROUTINE Waves_CalcContStateDeriv
-!----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE Waves_UpdateDiscState( Time, u, p, x, xd, z, OtherState, ErrStat, ErrMsg )   
-! Tight coupling routine for updating discrete states
-!..................................................................................................................................
-   
-      REAL(DbKi),                        INTENT(IN   )  :: Time        ! Current simulation time in seconds   
-      TYPE(Waves_InputType),           INTENT(IN   )  :: u           ! Inputs at Time                       
-      TYPE(Waves_ParameterType),       INTENT(IN   )  :: p           ! Parameters                                 
-      TYPE(Waves_ContinuousStateType), INTENT(IN   )  :: x           ! Continuous states at Time
-      TYPE(Waves_DiscreteStateType),   INTENT(INOUT)  :: xd          ! Input: Discrete states at Time; 
-                                                                       !   Output: Discrete states at Time + Interval
-      TYPE(Waves_ConstraintStateType), INTENT(IN   )  :: z           ! Constraint states at Time
-      TYPE(Waves_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states           
-      INTEGER(IntKi),                    INTENT(  OUT)  :: ErrStat     ! Error status of the operation
-      CHARACTER(*),                      INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
-
-               
-         ! Initialize ErrStat
-         
-      ErrStat = ErrID_None         
-      ErrMsg  = ""               
-      
-      
-         ! Update discrete states here:
-      
-      ! StateData%DiscState = 
-
-END SUBROUTINE Waves_UpdateDiscState
-!----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE Waves_CalcConstrStateResidual( Time, u, p, x, xd, z, OtherState, z_residual, ErrStat, ErrMsg )   
-! Tight coupling routine for solving for the residual of the constraint state equations
-!..................................................................................................................................
-   
-      REAL(DbKi),                        INTENT(IN   )  :: Time        ! Current simulation time in seconds   
-      TYPE(Waves_InputType),           INTENT(IN   )  :: u           ! Inputs at Time                       
-      TYPE(Waves_ParameterType),       INTENT(IN   )  :: p           ! Parameters                           
-      TYPE(Waves_ContinuousStateType), INTENT(IN   )  :: x           ! Continuous states at Time
-      TYPE(Waves_DiscreteStateType),   INTENT(IN   )  :: xd          ! Discrete states at Time
-      TYPE(Waves_ConstraintStateType), INTENT(IN   )  :: z           ! Constraint states at Time (possibly a guess)
-      TYPE(Waves_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states                    
-      TYPE(Waves_ConstraintStateType), INTENT(  OUT)  :: z_residual  ! Residual of the constraint state equations using  
-                                                                       !     the input values described above      
-      INTEGER(IntKi),                    INTENT(  OUT)  :: ErrStat     ! Error status of the operation
-      CHARACTER(*),                      INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
-
-               
-         ! Initialize ErrStat
-         
-      ErrStat = ErrID_None         
-      ErrMsg  = ""               
-      
-      
-         ! Solve for the constraint states here:
-      
-      z_residual%DummyConstrState = 0.0_SiKi
-
-END SUBROUTINE Waves_CalcConstrStateResidual
-!!----------------------------------------------------------------------------------------------------------------------------------
-!SUBROUTINE Waves_JacobianPInput( Time, u, p, x, xd, z, OtherState, dYdu, dXdu, dXddu, dZdu, ErrStat, ErrMsg )   
-!! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete- (Xd), and constraint-state (Z) equations 
-!! with respect to the inputs (u). The partial derivatives dY/du, dX/du, dXd/du, and DZ/du are returned.
-!!..................................................................................................................................
-!   
-!      REAL(DbKi),                                INTENT(IN   )           :: Time       ! Current simulation time in seconds   
-!      TYPE(Waves_InputType),                   INTENT(IN   )           :: u          ! Inputs at Time                       
-!      TYPE(Waves_ParameterType),               INTENT(IN   )           :: p          ! Parameters                           
-!      TYPE(Waves_ContinuousStateType),         INTENT(IN   )           :: x          ! Continuous states at Time
-!      TYPE(Waves_DiscreteStateType),           INTENT(IN   )           :: xd         ! Discrete states at Time
-!      TYPE(Waves_ConstraintStateType),         INTENT(IN   )           :: z          ! Constraint states at Time
-!      TYPE(Waves_OtherStateType),              INTENT(INOUT)           :: OtherState ! Other/optimization states                    
-!      !TYPE(Waves_PartialOutputPInputType),     INTENT(  OUT), OPTIONAL :: dYdu       ! Partial derivatives of output equations
-!      !                                                                                 !   (Y) with respect to the inputs (u)
-!      !TYPE(Waves_PartialContStatePInputType),  INTENT(  OUT), OPTIONAL :: dXdu       ! Partial derivatives of continuous state
-!      !                                                                                 !   equations (X) with respect to inputs (u)
-!      !TYPE(Waves_PartialDiscStatePInputType),  INTENT(  OUT), OPTIONAL :: dXddu      ! Partial derivatives of discrete state 
-!      !                                                                                 !   equations (Xd) with respect to inputs (u)
-!      !TYPE(Waves_PartialConstrStatePInputType),INTENT(  OUT), OPTIONAL :: dZdu       ! Partial derivatives of constraint state 
-!                                                                                       !   equations (Z) with respect to inputs (u)
-!      INTEGER(IntKi),                            INTENT(  OUT)           :: ErrStat    ! Error status of the operation
-!      CHARACTER(*),                              INTENT(  OUT)           :: ErrMsg     ! Error message if ErrStat /= ErrID_None
-!
-!               
-!         ! Initialize ErrStat
-!         
-!      ErrStat = ErrID_None         
-!      ErrMsg  = ""               
-!      
-!      
-!      IF ( PRESENT( dYdu ) ) THEN
-!      
-!         ! Calculate the partial derivative of the output equations (Y) with respect to the inputs (u) here:
-!
-!         dYdu%DummyOutput%DummyInput = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dXdu ) ) THEN
-!      
-!         ! Calculate the partial derivative of the continuous state equations (X) with respect to the inputs (u) here:
-!      
-!         dXdu%DummyContState%DummyInput = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dXddu ) ) THEN
-!
-!         ! Calculate the partial derivative of the discrete state equations (Xd) with respect to the inputs (u) here:
-!
-!         dXddu%DummyDiscState%DummyInput = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dZdu ) ) THEN
-!
-!         ! Calculate the partial derivative of the constraint state equations (Z) with respect to the inputs (u) here:
-!      
-!         dZdu%DummyConstrState%DummyInput = 0
-!
-!      END IF
-!
-!
-!END SUBROUTINE Waves_JacobianPInput
-!!----------------------------------------------------------------------------------------------------------------------------------
-!SUBROUTINE Waves_JacobianPContState( Time, u, p, x, xd, z, OtherState, dYdx, dXdx, dXddx, dZdx, ErrStat, ErrMsg )   
-!! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete- (Xd), and constraint-state (Z) equations
-!! with respect to the continuous states (x). The partial derivatives dY/dx, dX/dx, dXd/dx, and DZ/dx are returned.
-!!..................................................................................................................................
-!   
-!      REAL(DbKi),                                    INTENT(IN   )           :: Time       ! Current simulation time in seconds   
-!      TYPE(Waves_InputType),                       INTENT(IN   )           :: u          ! Inputs at Time                       
-!      TYPE(Waves_ParameterType),                   INTENT(IN   )           :: p          ! Parameters                           
-!      TYPE(Waves_ContinuousStateType),             INTENT(IN   )           :: x          ! Continuous states at Time
-!      TYPE(Waves_DiscreteStateType),               INTENT(IN   )           :: xd         ! Discrete states at Time
-!      TYPE(Waves_ConstraintStateType),             INTENT(IN   )           :: z          ! Constraint states at Time
-!      TYPE(Waves_OtherStateType),                  INTENT(INOUT)           :: OtherState ! Other/optimization states                    
-!      !TYPE(Waves_PartialOutputPContStateType),     INTENT(  OUT), OPTIONAL :: dYdx       ! Partial derivatives of output equations
-!      !                                                                                     !   (Y) with respect to the continuous 
-!      !                                                                                     !   states (x)
-!      !TYPE(Waves_PartialContStatePContStateType),  INTENT(  OUT), OPTIONAL :: dXdx       ! Partial derivatives of continuous state
-!      !                                                                                     !   equations (X) with respect to 
-!      !                                                                                     !   the continuous states (x)
-!      !TYPE(Waves_PartialDiscStatePContStateType),  INTENT(  OUT), OPTIONAL :: dXddx      ! Partial derivatives of discrete state 
-!      !                                                                                     !   equations (Xd) with respect to 
-!      !                                                                                     !   the continuous states (x)
-!      !TYPE(Waves_PartialConstrStatePContStateType),INTENT(  OUT), OPTIONAL :: dZdx       ! Partial derivatives of constraint state
-!                                                                                           !   equations (Z) with respect to 
-!                                                                                           !   the continuous states (x)
-!      INTEGER(IntKi),                                INTENT(  OUT)           :: ErrStat    ! Error status of the operation
-!      CHARACTER(*),                                  INTENT(  OUT)           :: ErrMsg     ! Error message if ErrStat /= ErrID_None
-!
-!               
-!         ! Initialize ErrStat
-!         
-!      ErrStat = ErrID_None         
-!      ErrMsg  = ""               
-!      
-!      
-!     
-!      IF ( PRESENT( dYdx ) ) THEN
-!
-!         ! Calculate the partial derivative of the output equations (Y) with respect to the continuous states (x) here:
-!
-!         dYdx%DummyOutput%DummyContState = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dXdx ) ) THEN
-!      
-!         ! Calculate the partial derivative of the continuous state equations (X) with respect to the continuous states (x) here:
-!      
-!         dXdx%DummyContState%DummyContState = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dXddx ) ) THEN
-!
-!         ! Calculate the partial derivative of the discrete state equations (Xd) with respect to the continuous states (x) here:
-!
-!         dXddx%DummyDiscState%DummyContState = 0
-!         
-!      END IF
-!      
-!      IF ( PRESENT( dZdx ) ) THEN
-!
-!
-!         ! Calculate the partial derivative of the constraint state equations (Z) with respect to the continuous states (x) here:
-!      
-!         dZdx%DummyConstrState%DummyContState = 0
-!
-!      END IF
-!      
-!
-!   END SUBROUTINE Waves_JacobianPContState
-!!----------------------------------------------------------------------------------------------------------------------------------
-!SUBROUTINE Waves_JacobianPDiscState( Time, u, p, x, xd, z, OtherState, dYdxd, dXdxd, dXddxd, dZdxd, ErrStat, ErrMsg )   
-!! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete- (Xd), and constraint-state (Z) equations
-!! with respect to the discrete states (xd). The partial derivatives dY/dxd, dX/dxd, dXd/dxd, and DZ/dxd are returned.
-!!..................................................................................................................................
-!
-!      REAL(DbKi),                                    INTENT(IN   )           :: Time       ! Current simulation time in seconds   
-!      TYPE(Waves_InputType),                       INTENT(IN   )           :: u          ! Inputs at Time                       
-!      TYPE(Waves_ParameterType),                   INTENT(IN   )           :: p          ! Parameters                           
-!      TYPE(Waves_ContinuousStateType),             INTENT(IN   )           :: x          ! Continuous states at Time
-!      TYPE(Waves_DiscreteStateType),               INTENT(IN   )           :: xd         ! Discrete states at Time
-!      TYPE(Waves_ConstraintStateType),             INTENT(IN   )           :: z          ! Constraint states at Time
-!      TYPE(Waves_OtherStateType),                  INTENT(INOUT)           :: OtherState ! Other/optimization states                    
-!      !TYPE(Waves_PartialOutputPDiscStateType),     INTENT(  OUT), OPTIONAL :: dYdxd      ! Partial derivatives of output equations
-!      !                                                                                     !  (Y) with respect to the discrete 
-!      !                                                                                     !  states (xd)
-!      !TYPE(Waves_PartialContStatePDiscStateType),  INTENT(  OUT), OPTIONAL :: dXdxd      ! Partial derivatives of continuous state
-!      !                                                                                     !   equations (X) with respect to the 
-!      !                                                                                     !   discrete states (xd)
-!      !TYPE(Waves_PartialDiscStatePDiscStateType),  INTENT(  OUT), OPTIONAL :: dXddxd     ! Partial derivatives of discrete state 
-!      !                                                                                     !   equations (Xd) with respect to the
-!      !                                                                                     !   discrete states (xd)
-!      !TYPE(Waves_PartialConstrStatePDiscStateType),INTENT(  OUT), OPTIONAL :: dZdxd      ! Partial derivatives of constraint state
-!                                                                                           !   equations (Z) with respect to the 
-!                                                                                           !   discrete states (xd)
-!      INTEGER(IntKi),                                INTENT(  OUT)           :: ErrStat    ! Error status of the operation
-!      CHARACTER(*),                                  INTENT(  OUT)           :: ErrMsg     ! Error message if ErrStat /= ErrID_None
-!
-!               
-!         ! Initialize ErrStat
-!         
-!      ErrStat = ErrID_None         
-!      ErrMsg  = ""               
-!      
-!      
-!      IF ( PRESENT( dYdxd ) ) THEN
-!      
-!         ! Calculate the partial derivative of the output equations (Y) with respect to the discrete states (xd) here:
-!
-!         dYdxd%DummyOutput%DummyDiscState = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dXdxd ) ) THEN
-!
-!         ! Calculate the partial derivative of the continuous state equations (X) with respect to the discrete states (xd) here:
-!      
-!         dXdxd%DummyContState%DummyDiscState = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dXddxd ) ) THEN
-!
-!         ! Calculate the partial derivative of the discrete state equations (Xd) with respect to the discrete states (xd) here:
-!
-!         dXddxd%DummyDiscState%DummyDiscState = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dZdxd ) ) THEN
-!
-!         ! Calculate the partial derivative of the constraint state equations (Z) with respect to the discrete states (xd) here:
-!      
-!         dZdxd%DummyConstrState%DummyDiscState = 0
-!
-!      END IF
-!      
-!
-!
-!END SUBROUTINE Waves_JacobianPDiscState
-!!----------------------------------------------------------------------------------------------------------------------------------    
-!SUBROUTINE Waves_JacobianPConstrState( Time, u, p, x, xd, z, OtherState, dYdz, dXdz, dXddz, dZdz, ErrStat, ErrMsg )   
-!! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete- (Xd), and constraint-state (Z) equations
-!! with respect to the constraint states (z). The partial derivatives dY/dz, dX/dz, dXd/dz, and DZ/dz are returned.
-!!..................................................................................................................................
-!   
-!      REAL(DbKi),                                      INTENT(IN   )           :: Time       ! Current simulation time in seconds   
-!      TYPE(Waves_InputType),                         INTENT(IN   )           :: u          ! Inputs at Time                       
-!      TYPE(Waves_ParameterType),                     INTENT(IN   )           :: p          ! Parameters                           
-!      TYPE(Waves_ContinuousStateType),               INTENT(IN   )           :: x          ! Continuous states at Time
-!      TYPE(Waves_DiscreteStateType),                 INTENT(IN   )           :: xd         ! Discrete states at Time
-!      TYPE(Waves_ConstraintStateType),               INTENT(IN   )           :: z          ! Constraint states at Time
-!      TYPE(Waves_OtherStateType),                    INTENT(INOUT)           :: OtherState ! Other/optimization states                    
-!      !TYPE(Waves_PartialOutputPConstrStateType),     INTENT(  OUT), OPTIONAL :: dYdz       ! Partial derivatives of output 
-!                                                                                             !  equations (Y) with respect to the 
-!                                                                                             !  constraint states (z)
-!      !TYPE(Waves_PartialContStatePConstrStateType),  INTENT(  OUT), OPTIONAL :: dXdz       ! Partial derivatives of continuous
-!      !                                                                                       !  state equations (X) with respect to 
-!      !                                                                                       !  the constraint states (z)
-!      !TYPE(Waves_PartialDiscStatePConstrStateType),  INTENT(  OUT), OPTIONAL :: dXddz      ! Partial derivatives of discrete state
-!      !                                                                                       !  equations (Xd) with respect to the 
-!      !                                                                                       !  constraint states (z)
-!      !TYPE(Waves_PartialConstrStatePConstrStateType),INTENT(  OUT), OPTIONAL :: dZdz       ! Partial derivatives of constraint 
-!                                                                                             ! state equations (Z) with respect to 
-!                                                                                             !  the constraint states (z)
-!      INTEGER(IntKi),                                  INTENT(  OUT)           :: ErrStat    ! Error status of the operation
-!      CHARACTER(*),                                    INTENT(  OUT)           :: ErrMsg     ! Error message if ErrStat /= ErrID_None
-!
-!               
-!         ! Initialize ErrStat
-!         
-!      ErrStat = ErrID_None         
-!      ErrMsg  = ""               
-!      
-!      IF ( PRESENT( dYdz ) ) THEN
-!      
-!            ! Calculate the partial derivative of the output equations (Y) with respect to the constraint states (z) here:
-!        
-!         dYdz%DummyOutput%DummyConstrState = 0
-!         
-!      END IF
-!      
-!      IF ( PRESENT( dXdz ) ) THEN
-!      
-!            ! Calculate the partial derivative of the continuous state equations (X) with respect to the constraint states (z) here:
-!         
-!         dXdz%DummyContState%DummyConstrState = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dXddz ) ) THEN
-!
-!            ! Calculate the partial derivative of the discrete state equations (Xd) with respect to the constraint states (z) here:
-!
-!         dXddz%DummyDiscState%DummyConstrState = 0
-!
-!      END IF
-!      
-!      IF ( PRESENT( dZdz ) ) THEN
-!
-!            ! Calculate the partial derivative of the constraint state equations (Z) with respect to the constraint states (z) here:
-!         
-!         dZdz%DummyConstrState%DummyConstrState = 0
-!
-!      END IF
-!      
-!
-!END SUBROUTINE Waves_JacobianPConstrState
-
 !----------------------------------------------------------------------------------------------------------------------------------
 
 !=======================================================================

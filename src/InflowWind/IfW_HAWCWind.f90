@@ -1,19 +1,18 @@
+!>  This module uses full-field binary wind files to determine the wind inflow.
+!!  This module assumes that the origin, (0,0,0), is located at the tower centerline at ground level,
+!!  and that all units are specified in the metric system (using meters and seconds).
+!!  Data is assumed periodic in the X direction (and thus not shifted like FFWind files are).
 MODULE IfW_HAWCWind
-!
-!  This module uses full-field binary wind files to determine the wind inflow.
-!  This module assumes that the origin, (0,0,0), is located at the tower centerline at ground level,
-!  and that all units are specified in the metric system (using meters and seconds).
-!  Data is assumed periodic in the X direction (and thus not shifted like FFWind files are).
-!
-!  Created 25-June-2010 by B. Jonkman, National Renewable Energy Laboratory
-!     using subroutines and modules from AeroDyn v12.58
-!
-!----------------------------------------------------------------------------------------------------
-! Updated 8-Aug-2015 for InflowWind v3.0 in the FAST v8 Framework
+!!
+!!  Created 25-June-2010 by B. Jonkman, National Renewable Energy Laboratory
+!!     using subroutines and modules from AeroDyn v12.58
+!!
+!!----------------------------------------------------------------------------------------------------
+!! Updated 8-Aug-2015 for InflowWind v3.0 in the FAST v8 Framework
 !
 !**********************************************************************************************************************************
 ! LICENSING
-! Copyright (C) 2015  National Renewable Energy Laboratory
+! Copyright (C) 2015-2016  National Renewable Energy Laboratory
 !
 !    This file is part of InflowWind.
 !
@@ -41,43 +40,38 @@ MODULE IfW_HAWCWind
    IMPLICIT                                     NONE
    PRIVATE
 
-   TYPE(ProgDesc),   PARAMETER               :: IfW_HAWCWind_Ver = ProgDesc( 'IfW_HAWCWind', 'v1.00.00', '10-Aug-2015' )
+   TYPE(ProgDesc),   PARAMETER               :: IfW_HAWCWind_Ver = ProgDesc( 'IfW_HAWCWind', 'v1.01.00', '14-Dec-2015' )
 
    PUBLIC                                    :: IfW_HAWCWind_Init
    PUBLIC                                    :: IfW_HAWCWind_End
    PUBLIC                                    :: IfW_HAWCWind_CalcOutput
 
-   INTEGER(IntKi), PARAMETER  :: nc = 3   ! number of wind components
-   INTEGER(IntKi), PARAMETER  :: WindProfileType_Constant = 0
-   INTEGER(IntKi), PARAMETER  :: WindProfileType_Log      = 1     ! logarithmic
-   INTEGER(IntKi), PARAMETER  :: WindProfileType_PL       = 2     ! power law
+   INTEGER(IntKi), PARAMETER  :: nc = 3                           !< number of wind components
+   INTEGER(IntKi), PARAMETER  :: WindProfileType_Constant = 0     !< constant wind
+   INTEGER(IntKi), PARAMETER  :: WindProfileType_Log      = 1     !< logarithmic
+   INTEGER(IntKi), PARAMETER  :: WindProfileType_PL       = 2     !< power law
 
-   INTEGER(IntKi), PARAMETER  :: ScaleMethod_None         = 0     ! no scaling
-   INTEGER(IntKi), PARAMETER  :: ScaleMethod_Direct       = 1     ! direct scaling factors
-   INTEGER(IntKi), PARAMETER  :: ScaleMethod_StdDev       = 2     ! requested standard deviation
+   INTEGER(IntKi), PARAMETER  :: ScaleMethod_None         = 0     !< no scaling
+   INTEGER(IntKi), PARAMETER  :: ScaleMethod_Direct       = 1     !< direct scaling factors
+   INTEGER(IntKi), PARAMETER  :: ScaleMethod_StdDev       = 2     !< requested standard deviation
    
 CONTAINS
 !====================================================================================================
-SUBROUTINE IfW_HAWCWind_Init(InitInp, PositionXYZ, p, OtherStates, &
-                           OutData, Interval, InitOut, ErrStat, ErrMsg)
-!  This routine is used to initialize the parameters for using HAWC wind format files.
-!----------------------------------------------------------------------------------------------------
-
+!>  This routine is used to initialize the parameters for using HAWC wind format files.
+SUBROUTINE IfW_HAWCWind_Init(InitInp, p, MiscVars, Interval, InitOut, ErrStat, ErrMsg)
 
       ! Passed Variables
-   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           ! Initialization data passed to the module
-   REAL(ReKi),             ALLOCATABLE,      INTENT(INOUT)  :: PositionXYZ(:,:)  ! Array of positions to find wind speed at
-   TYPE(IfW_HAWCWind_ParameterType),         INTENT(  OUT)  :: p                 ! Parameters
-   TYPE(IfW_HAWCWind_OtherStateType),        INTENT(  OUT)  :: OtherStates       ! Other State data   (storage for the main data)
-   TYPE(IfW_HAWCWind_OutputType),            INTENT(  OUT)  :: OutData           ! Initial output
-   TYPE(IfW_HAWCWind_InitOutputType),        INTENT(  OUT)  :: InitOut           ! Initialization output
+   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           !< Initialization data passed to the module
+   TYPE(IfW_HAWCWind_ParameterType),         INTENT(  OUT)  :: p                 !< Parameters
+   TYPE(IfW_HAWCWind_MiscVarType),           INTENT(  OUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
+   TYPE(IfW_HAWCWind_InitOutputType),        INTENT(  OUT)  :: InitOut           !< Initialization output
 
-   REAL(DbKi),                               INTENT(IN   )  :: Interval          ! Time Interval to use (passed through here)
+   REAL(DbKi),                               INTENT(IN   )  :: Interval          !< Time Interval to use (passed through here)
 
 
       ! Error Handling
-   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           ! determines if an error has been encountered
-   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            ! Message about errors
+   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            !< Message about errors
 
 
       ! Temporary variables for error handling
@@ -97,25 +91,6 @@ SUBROUTINE IfW_HAWCWind_Init(InitInp, PositionXYZ, p, OtherStates, &
       CALL SetErrStat(TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName) 
       IF (ErrStat >= AbortErrLev) RETURN
   
-   !-------------------------------------------------------------------------------------------------
-   ! allocate memory for output structure
-   !-------------------------------------------------------------------------------------------------
-
-      ! Check that the PositionXYZ and OutData%Velocity arrays have both been allocated
-   IF ( .NOT. ALLOCATED(PositionXYZ) ) THEN
-      CALL SetErrStat(ErrID_Fatal,' Programming error: The PositionXYZ array has not been allocated prior to call to '//RoutineName//'.',   &
-                  ErrStat,ErrMsg,'')
-      RETURN
-   ENDIF
-
-      ! Check that the PositionXYZ and OutData%Velocity arrays are the same size.
-   IF ( ALLOCATED(OutData%Velocity) .AND. & 
-        ( (SIZE( PositionXYZ, DIM = 1 ) /= SIZE( OutData%Velocity, DIM = 1 )) .OR. &
-          (SIZE( PositionXYZ, DIM = 2 ) /= SIZE( OutData%Velocity, DIM = 2 ))      )  ) THEN
-      CALL SetErrStat(ErrID_Fatal,' Programming error: Different number of XYZ coordinates and expected output velocities.', &
-                  ErrStat,ErrMsg,RoutineName)
-      RETURN
-   ENDIF
       
    !-------------------------------------------------------------------------------------------------
    ! Set some internal module parameters based on input file values
@@ -153,7 +128,7 @@ SUBROUTINE IfW_HAWCWind_Init(InitInp, PositionXYZ, p, OtherStates, &
    !-------------------------------------------------------------------------------------------------
    ! scale to requested TI (or use requested scale factors)
    !-------------------------------------------------------------------------------------------------
-   call ScaleTurbulence( p, InitInp, Interval, InitOut, OtherStates, TmpErrStat, TmpErrMsg)
+   call ScaleTurbulence( p, InitInp, Interval, InitOut, MiscVars, TmpErrStat, TmpErrMsg)
       CALL SetErrStat(TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName) 
       IF (ErrStat >= AbortErrLev) RETURN      
       
@@ -192,23 +167,19 @@ SUBROUTINE IfW_HAWCWind_Init(InitInp, PositionXYZ, p, OtherStates, &
       WRITE(InitInp%SumFileUnit,'(F10.3,2x,F10.3,2x,F10.3)',IOSTAT=TmpErrStat)   InitOut%sf      
    ENDIF 
       
-   OutData%DiskVel = 0.0_ReKi
-
    RETURN
 
 END SUBROUTINE IfW_HAWCWind_Init
 !====================================================================================================
+!>  This routine is used to make sure the initInp data is valid.
 SUBROUTINE ValidateInput(InitInp, ErrStat, ErrMsg)
-!  This routine is used to make sure the initInp data is valid.
-!----------------------------------------------------------------------------------------------------
-
 
       ! Passed Variables
-   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           ! Initialization input data passed to the module
+   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           !< Initialization input data passed to the module
 
       ! Error Handling
-   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           ! determines if an error has been encountered
-   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            ! Message about errors
+   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            !< Message about errors
    character(*), parameter                                  :: RoutineName = 'ValidateInput'
    
    integer(intki)                                           :: ic                ! loop counter
@@ -255,16 +226,14 @@ SUBROUTINE ValidateInput(InitInp, ErrStat, ErrMsg)
    
 END SUBROUTINE ValidateInput
 !====================================================================================================
+!>  This routine is used read the full-field turbulence data stored in HAWC format.
 SUBROUTINE ReadTurbulenceData(p, InitInp, ErrStat, ErrMsg)
-!  This routine is used read the full-field turbulence data stored in HAWC format.
-!----------------------------------------------------------------------------------------------------
-
 
       ! Passed Variables
-   TYPE(IfW_HAWCWind_ParameterType),         INTENT(INOUT)  :: p                 ! Parameters
-   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           ! Initialization input data passed to the module
-   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           ! determines if an error has been encountered
-   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            ! Message about errors
+   TYPE(IfW_HAWCWind_ParameterType),         INTENT(INOUT)  :: p                 !< Parameters
+   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           !< Initialization input data passed to the module
+   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            !< Message about errors
    
       ! Local Variables:
    INTEGER                                                   :: IC               ! Loop counter for the number of wind components
@@ -323,7 +292,7 @@ SUBROUTINE ReadTurbulenceData(p, InitInp, ErrStat, ErrMsg)
 
                READ( UnWind, IOSTAT=TmpErrStat ) p%HAWCData(:,iy,ix,ic)  ! note that HAWCData is SiKi (4-byte reals, not default kinds)
 
-               IF (ErrStat /= 0) THEN
+               IF (TmpErrStat /= 0) THEN
                   TmpErrMsg = ' Error reading binary data from "'//TRIM(InitInp%WindFileName(IC))//'". I/O error ' &
                                        //TRIM(Num2LStr(TmpErrStat))//' occurred at IY='//TRIM(Num2LStr(IY))//', IX='//TRIM(Num2LStr(IX))//'.'
                   CLOSE ( UnWind )
@@ -342,19 +311,17 @@ SUBROUTINE ReadTurbulenceData(p, InitInp, ErrStat, ErrMsg)
    
 END SUBROUTINE ReadTurbulenceData
 !====================================================================================================
-SUBROUTINE ScaleTurbulence(p, InitInp, Interval, InitOut, OtherStates, ErrStat, ErrMsg)
-!  This routine is used read scale the full-field turbulence data stored in HAWC format.
-!----------------------------------------------------------------------------------------------------
-
+!>  This routine is used read scale the full-field turbulence data stored in HAWC format.
+SUBROUTINE ScaleTurbulence(p, InitInp, Interval, InitOut, MiscVars, ErrStat, ErrMsg)
 
       ! Passed Variables
-   TYPE(IfW_HAWCWind_ParameterType),         INTENT(INOUT)  :: p                 ! Parameters
-   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           ! Initialization input data passed to the module
-   TYPE(IfW_HAWCWind_InitOutputType),        INTENT(INOUT)  :: InitOut           ! Initialization output data passed from the module
-   REAL(DbKi),                               INTENT(IN   )  :: Interval          ! Time Interval to use (passed through here)
-   TYPE(IfW_HAWCWind_OtherStateType),        INTENT(INOUT)  :: OtherStates       ! Other State data   (storage for the main data)
-   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           ! determines if an error has been encountered
-   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            ! Message about errors
+   TYPE(IfW_HAWCWind_ParameterType),         INTENT(INOUT)  :: p                 !< Parameters
+   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           !< Initialization input data passed to the module
+   TYPE(IfW_HAWCWind_InitOutputType),        INTENT(INOUT)  :: InitOut           !< Initialization output data passed from the module
+   REAL(DbKi),                               INTENT(IN   )  :: Interval          !< Time Interval to use (passed through here)
+   TYPE(IfW_HAWCWind_MiscVarType),           INTENT(INOUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
+   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            !< Message about errors
    
       ! Local Variables:
    REAL(ReKi)                                               :: position(3)       ! location where std dev of wind speed will be computed
@@ -461,16 +428,14 @@ SUBROUTINE ScaleTurbulence(p, InitInp, Interval, InitOut, OtherStates, ErrStat, 
                
 END SUBROUTINE ScaleTurbulence   
 !====================================================================================================
+!>  This routine is used to add a mean wind profile to the HAWC format turbulence data.
 SUBROUTINE AddMeanVelocity(p, InitInp, ErrStat, ErrMsg)
-!  This routine is used to add a mean wind profile to the HAWC format turbulence data.
-!----------------------------------------------------------------------------------------------------
-
 
       ! Passed Variables
-   TYPE(IfW_HAWCWind_ParameterType),         INTENT(INOUT)  :: p                 ! Parameters
-   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           ! Initialization input data passed to the module
-   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           ! determines if an error has been encountered
-   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            ! Message about errors
+   TYPE(IfW_HAWCWind_ParameterType),         INTENT(INOUT)  :: p                 !< Parameters
+   TYPE(IfW_HAWCWind_InitInputType),         INTENT(IN   )  :: InitInp           !< Initialization input data passed to the module
+   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            !< Message about errors
    
       ! Local Variables:
    REAL(ReKi)                                               :: Z                 ! height
@@ -522,29 +487,27 @@ SUBROUTINE AddMeanVelocity(p, InitInp, ErrStat, ErrMsg)
                
 END SUBROUTINE AddMeanVelocity   
 !====================================================================================================
-SUBROUTINE IfW_HAWCWind_CalcOutput(Time, PositionXYZ, p, OtherStates, OutData, ErrStat, ErrMsg)
-   !-------------------------------------------------------------------------------------------------
-   ! This routine acts as a wrapper for the GetWindSpeed routine. It steps through the array of input
-   ! positions and calls the GetWindSpeed routine to calculate the velocities at each point.
-   !
-   ! There are inefficiencies in how this set of routines is coded, but that is a problem for another
-   ! day. For now, it merely needs to be functional. It can be fixed up and made all pretty later.
-   !
-   !   16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
-   !-------------------------------------------------------------------------------------------------
+!> This routine acts as a wrapper for the GetWindSpeed routine. It steps through the array of input
+!! positions and calls the GetWindSpeed routine to calculate the velocities at each point.
+!!
+!! There are inefficiencies in how this set of routines is coded, but that is a problem for another
+!! day. For now, it merely needs to be functional. It can be fixed up and made all pretty later.
+!!
+!!   16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
+SUBROUTINE IfW_HAWCWind_CalcOutput(Time, PositionXYZ, p, OutData, MiscVars, ErrStat, ErrMsg)
 
    IMPLICIT NONE
 
       ! Passed Variables
-   REAL(DbKi),                               INTENT(IN   )  :: Time              ! time from the start of the simulation
-   REAL(ReKi), ALLOCATABLE,                  INTENT(IN   )  :: PositionXYZ(:,:)  ! Array of XYZ coordinates, 3xN
-   TYPE(IfW_HAWCWind_ParameterType),         INTENT(IN   )  :: p         ! Parameters
-   TYPE(IfW_HAWCWind_OtherStateType),        INTENT(INOUT)  :: OtherStates       ! Other State data   (storage for the main data)
-   TYPE(IfW_HAWCWind_OutputType),            INTENT(  OUT)  :: OutData           ! Initial output
+   REAL(DbKi),                               INTENT(IN   )  :: Time              !< time from the start of the simulation
+   REAL(ReKi), ALLOCATABLE,                  INTENT(IN   )  :: PositionXYZ(:,:)  !< Array of XYZ coordinates, 3xN
+   TYPE(IfW_HAWCWind_ParameterType),         INTENT(IN   )  :: p                 !< Parameters
+   TYPE(IfW_HAWCWind_OutputType),            INTENT(  OUT)  :: OutData           !< Output at Time
+   TYPE(IfW_HAWCWind_MiscVarType),           INTENT(  OUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
       ! Error handling
-   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat        ! error status
-   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg         ! The error message
+   INTEGER(IntKi),                           INTENT(  OUT)  :: ErrStat           !< error status
+   CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            !< The error message
 
       ! local variables
    INTEGER(IntKi)                                           :: NumPoints      ! Number of points specified by the PositionXYZ array
@@ -593,7 +556,7 @@ SUBROUTINE IfW_HAWCWind_CalcOutput(Time, PositionXYZ, p, OtherStates, OutData, E
 
 
          ! Calculate the velocity for the position
-      OutData%Velocity(:,PointNum) = FF_Interp(Time,PositionXYZ(:,PointNum),p,OtherStates,TmpErrStat,TmpErrMsg)
+      OutData%Velocity(:,PointNum) = FF_Interp(Time,PositionXYZ(:,PointNum),p,MiscVars,TmpErrStat,TmpErrMsg)
 
 
          ! Error handling
@@ -620,29 +583,27 @@ SUBROUTINE IfW_HAWCWind_CalcOutput(Time, PositionXYZ, p, OtherStates, OutData, E
 END SUBROUTINE IfW_HAWCWind_CalcOutput
 !====================================================================================================
    !+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
-   FUNCTION FF_Interp(Time, Position, p, OtherStates, ErrStat, ErrMsg)
-   !    This function is used to interpolate into the full-field wind array.  It receives X, Y, Z and
-   !    TIME from the calling routine.  It then computes a time shift due to a nonzero X based upon
-   !    the average windspeed.  The modified time is used to decide which pair of time slices to interpolate
-   !    within and between.  After finding the two time slices, it decides which four grid points bound the
-   !    (Y,Z) pair.  It does a 3-d linear interpolation.  This routine assumes that X is downwind, Y is to the left when
-   !    looking downwind and Z is up.  It also assumes that no extrapolation will be needed.
-   !----------------------------------------------------------------------------------------------------
+   !>    This function is used to interpolate into the full-field wind array.  It receives X, Y, Z and
+   !!    TIME from the calling routine.  It then computes a time shift due to a nonzero X based upon
+   !!    the average windspeed.  The modified time is used to decide which pair of time slices to interpolate
+   !!    within and between.  After finding the two time slices, it decides which four grid points bound the
+   !!    (Y,Z) pair.  It does a 3-d linear interpolation.  This routine assumes that X is downwind, Y is to the left when
+   !!    looking downwind and Z is up.  It also assumes that no extrapolation will be needed.
+   FUNCTION FF_Interp(Time, Position, p, MiscVars, ErrStat, ErrMsg)
 
-      IMPLICIT                                              NONE
+      REAL(DbKi),                         INTENT(IN   )  :: Time           !< time
+      REAL(ReKi),                         INTENT(IN   )  :: Position(3)    !< takes the place of XGrnd, YGrnd, ZGrnd
+      TYPE(IfW_HAWCWind_ParameterType),   INTENT(IN   )  :: p              !< Parameters
+      TYPE(IfW_HAWCWind_MiscVarType),     INTENT(INOUT)  :: MiscVars       !< Misc variables for optimization (not copied in glue code)
+      REAL(ReKi)                                         :: FF_Interp(3)   !< The U, V, W velocities
 
-      CHARACTER(*),           PARAMETER                  :: RoutineName="FF_Interp"
-
-      REAL(DbKi),                         INTENT(IN   )  :: Time
-      REAL(ReKi),                         INTENT(IN   )  :: Position(3)    ! takes the place of XGrnd, YGrnd, ZGrnd
-      TYPE(IfW_HAWCWind_ParameterType),   INTENT(IN   )  :: p      ! Parameters
-      TYPE(IfW_HAWCWind_OtherStateType),  INTENT(INOUT)  :: OtherStates    ! Other State data   (storage for the main data)
-      REAL(ReKi)                                         :: FF_Interp(3)   ! The U, V, W velocities
-
-      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat
-      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg
+      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat        !< error status
+      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg         !< error message   
 
          ! Local Variables:
+      
+      CHARACTER(*),           PARAMETER                  :: RoutineName="FF_Interp"
+
 
       REAL(ReKi)                                         :: ShiftedXPosition
       REAL(ReKi),PARAMETER                               :: Tol = 1.0E-3   ! a tolerance for determining if two reals are the same (for extrapolation)
@@ -805,12 +766,9 @@ END SUBROUTINE IfW_HAWCWind_CalcOutput
 
    END FUNCTION FF_Interp
 !====================================================================================================
-SUBROUTINE IfW_HAWCWind_End( PositionXYZ, p, OtherStates, OutData, ErrStat, ErrMsg)
-   !-------------------------------------------------------------------------------------------------
-   !  This subroutine cleans up any data that is still allocated.  The (possibly) open files are
-   !  closed in InflowWindMod.
-   !-------------------------------------------------------------------------------------------------
-
+!>  This subroutine cleans up any data that is still allocated.  The (possibly) open files are
+!!  closed in InflowWindMod.
+SUBROUTINE IfW_HAWCWind_End( PositionXYZ, p, OutData, MiscVars, ErrStat, ErrMsg)
 
    IMPLICIT                                                 NONE
 
@@ -819,15 +777,15 @@ SUBROUTINE IfW_HAWCWind_End( PositionXYZ, p, OtherStates, OutData, ErrStat, ErrM
 
 
       ! Passed Variables
-   REAL(ReKi),             ALLOCATABLE,   INTENT(INOUT)  :: PositionXYZ(:,:)  ! Coordinate position list
-   TYPE(IfW_HAWCWind_ParameterType),      INTENT(INOUT)  :: p      ! Parameters
-   TYPE(IfW_HAWCWind_OtherStateType),     INTENT(INOUT)  :: OtherStates    ! Other State data   (storage for the main data)
-   TYPE(IfW_HAWCWind_OutputType),         INTENT(INOUT)  :: OutData        ! Initial output
+   REAL(ReKi),             ALLOCATABLE,   INTENT(INOUT)  :: PositionXYZ(:,:)  !< Coordinate position list
+   TYPE(IfW_HAWCWind_ParameterType),      INTENT(INOUT)  :: p                 !< Parameters
+   TYPE(IfW_HAWCWind_OutputType),         INTENT(INOUT)  :: OutData           !< Output
+   TYPE(IfW_HAWCWind_MiscVarType),        INTENT(  OUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
 
       ! Error Handling
-   INTEGER(IntKi),                        INTENT(  OUT)  :: ErrStat        ! determines if an error has been encountered
-   CHARACTER(*),                          INTENT(  OUT)  :: ErrMsg         ! Message about errors
+   INTEGER(IntKi),                        INTENT(  OUT)  :: ErrStat           !< determines if an error has been encountered
+   CHARACTER(*),                          INTENT(  OUT)  :: ErrMsg            !< Message about errors
 
 
       ! Local Variables
@@ -855,7 +813,7 @@ SUBROUTINE IfW_HAWCWind_End( PositionXYZ, p, OtherStates, OutData, ErrStat, ErrM
 
       ! Destroy the state data
 
-   CALL IfW_HAWCWind_DestroyOtherState(  OtherStates,   TmpErrStat, TmpErrMsg )
+   CALL IfW_HAWCWind_DestroyMisc(  MiscVars,   TmpErrStat, TmpErrMsg )
    CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName)
 
 

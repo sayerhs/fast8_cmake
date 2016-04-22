@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VisualStudioProject ProjectCreator="Intel Fortran" Keyword="Console Application" Version="11.0" ProjectIdGuid="{B2749B61-7902-4C71-BF21-EF60145445E3}">
+	<Platforms>
+		<Platform Name="Win32"/></Platforms>
+	<Configurations>
+		<Configuration Name="Debug|Win32">
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" WarnInterfaces="true" Traceback="true" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL"/>
+				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" GenerateDebugInformation="true" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool"/>
+				<Tool Name="VFPostBuildEventTool"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
+		<Configuration Name="Release|Win32">
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" RuntimeLibrary="rtMultiThreadedDLL"/>
+				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" SubSystem="subSystemConsole"/>
+				<Tool Name="VFResourceCompilerTool"/>
+				<Tool Name="VFMidlTool" SuppressStartupBanner="true"/>
+				<Tool Name="VFCustomBuildTool"/>
+				<Tool Name="VFPreLinkEventTool"/>
+				<Tool Name="VFPreBuildEventTool"/>
+				<Tool Name="VFPostBuildEventTool"/>
+				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration></Configurations>
+	<Files>
+		<Filter Name="Source Files" Filter="f90;for;f;fpp;ftn;def;odl;idl">
+		<Filter Name="Aero">
+		<Filter Name="AeroDyn">
+		<File RelativePath="..\src\AeroDyn\AeroDyn_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AeroDyn" Description="Running Registry for AeroDyn" Outputs="..\build_VS\AeroDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AeroDyn" Description="Running Registry for AeroDyn" Outputs="..\build_VS\AeroDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AeroDyn" Description="Running Registry for AeroDyn" Outputs="..\build_VS\AeroDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AeroDyn" Description="Running Registry for AeroDyn" Outputs="..\build_VS\AeroDyn_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\AeroDyn\AirfoilInfo_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AFI" Description="Running Registry for AirfoilInfo" Outputs="..\build_VS\AirfoilInfo_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AFI" Description="Running Registry for AirfoilInfo" Outputs="..\build_VS\AirfoilInfo_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AFI" Description="Running Registry for AirfoilInfo" Outputs="..\build_VS\AirfoilInfo_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AFI" Description="Running Registry for AirfoilInfo" Outputs="..\build_VS\AirfoilInfo_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\AeroDyn\BEMT_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat BEMT" Description="Running Registry for BEMT" Outputs="..\build_VS\BEMT_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat BEMT" Description="Running Registry for BEMT" Outputs="..\build_VS\BEMT_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat BEMT" Description="Running Registry for BEMT" Outputs="..\build_VS\BEMT_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat BEMT" Description="Running Registry for BEMT" Outputs="..\build_VS\BEMT_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\AeroDyn\UnsteadyAero_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat UA" Description="Running Registry for UnsteadyAero" Outputs="..\build_VS\UnsteadyAero_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat UA" Description="Running Registry for UnsteadyAero" Outputs="..\build_VS\UnsteadyAero_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat UA" Description="Running Registry for UnsteadyAero" Outputs="..\build_VS\UnsteadyAero_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat UA" Description="Running Registry for UnsteadyAero" Outputs="..\build_VS\UnsteadyAero_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="AeroDyn14">
+		<File RelativePath="..\src\AeroDyn14\Registry-DWM.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat DWM" Description="Running Registry for DWM" Outputs="..\build_VS\DWM_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat DWM" Description="Running Registry for DWM" Outputs="..\build_VS\DWM_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat DWM" Description="Running Registry for DWM" Outputs="..\build_VS\DWM_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat DWM" Description="Running Registry for DWM" Outputs="..\build_VS\DWM_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\AeroDyn14\Registry-AD14.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AeroDyn14" Description="Running Registry for AeroDyn14" Outputs="..\build_VS\AeroDyn14_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AeroDyn14" Description="Running Registry for AeroDyn14" Outputs="..\build_VS\AeroDyn14_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AeroDyn14" Description="Running Registry for AeroDyn14" Outputs="..\build_VS\AeroDyn14_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat AeroDyn14" Description="Running Registry for AeroDyn14" Outputs="..\build_VS\AeroDyn14_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		</Filter>
+		<Filter Name="BeamDyn">
+		<File RelativePath="..\src\BeamDyn\Registry_BeamDyn.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat BeamDyn" Description="Running Registry for BeamDyn" Outputs="..\build_VS\BeamDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat BeamDyn" Description="Running Registry for BeamDyn" Outputs="..\build_VS\BeamDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat BeamDyn" Description="Running Registry for BeamDyn" Outputs="..\build_VS\BeamDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat BeamDyn" Description="Running Registry for BeamDyn" Outputs="..\build_VS\BeamDyn_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="ElastoDyn">
+		<File RelativePath="..\src\ElastoDyn\ElastoDyn_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat ElastoDyn" Description="Running Registry for ElastoDyn" Outputs="..\build_VS\ElastoDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat ElastoDyn" Description="Running Registry for ElastoDyn" Outputs="..\build_VS\ElastoDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat ElastoDyn" Description="Running Registry for ElastoDyn" Outputs="..\build_VS\ElastoDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat ElastoDyn" Description="Running Registry for ElastoDyn" Outputs="..\build_VS\ElastoDyn_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="FAST">
+		<File RelativePath="..\src\FAST\FAST_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat FAST" Description="Running Registry for FAST" Outputs="..\build_VS\FAST_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat FAST" Description="Running Registry for FAST" Outputs="..\build_VS\FAST_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat FAST" Description="Running Registry for FAST" Outputs="..\build_VS\FAST_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat FAST" Description="Running Registry for FAST" Outputs="..\build_VS\FAST_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="HydroDyn">
+		<File RelativePath="..\src\HydroDyn\Conv_Radiation.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Conv_Radiation" Description="Running Registry for Conv_Radiation" Outputs="..\build_VS\Conv_Radiation_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Conv_Radiation" Description="Running Registry for Conv_Radiation" Outputs="..\build_VS\Conv_Radiation_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Conv_Radiation" Description="Running Registry for Conv_Radiation" Outputs="..\build_VS\Conv_Radiation_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Conv_Radiation" Description="Running Registry for Conv_Radiation" Outputs="..\build_VS\Conv_Radiation_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\HydroDyn\Current.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Current" Description="Running Registry for Current" Outputs="..\build_VS\Current_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Current" Description="Running Registry for Current" Outputs="..\build_VS\Current_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Current" Description="Running Registry for Current" Outputs="..\build_VS\Current_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Current" Description="Running Registry for Current" Outputs="..\build_VS\Current_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\HydroDyn\HydroDyn.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat HydroDyn" Description="Running Registry for HydroDyn" Outputs="..\build_VS\HydroDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat HydroDyn" Description="Running Registry for HydroDyn" Outputs="..\build_VS\HydroDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat HydroDyn" Description="Running Registry for HydroDyn" Outputs="..\build_VS\HydroDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat HydroDyn" Description="Running Registry for HydroDyn" Outputs="..\build_VS\HydroDyn_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\HydroDyn\Morison.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Morison" Description="Running Registry for Morison" Outputs="..\build_VS\Morison_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Morison" Description="Running Registry for Morison" Outputs="..\build_VS\Morison_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Morison" Description="Running Registry for Morison" Outputs="..\build_VS\Morison_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Morison" Description="Running Registry for Morison" Outputs="..\build_VS\Morison_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\HydroDyn\SS_Radiation.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat SS_Radiation" Description="Running Registry for SS_Radiation" Outputs="..\build_VS\SS_Radiation_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat SS_Radiation" Description="Running Registry for SS_Radiation" Outputs="..\build_VS\SS_Radiation_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat SS_Radiation" Description="Running Registry for SS_Radiation" Outputs="..\build_VS\SS_Radiation_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat SS_Radiation" Description="Running Registry for SS_Radiation" Outputs="..\build_VS\SS_Radiation_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\HydroDyn\WAMIT.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat WAMIT" Description="Running Registry for WAMIT" Outputs="..\build_VS\WAMIT_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat WAMIT" Description="Running Registry for WAMIT" Outputs="..\build_VS\WAMIT_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat WAMIT" Description="Running Registry for WAMIT" Outputs="..\build_VS\WAMIT_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat WAMIT" Description="Running Registry for WAMIT" Outputs="..\build_VS\WAMIT_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\HydroDyn\WAMIT2.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat WAMIT2" Description="Running Registry for WAMIT2" Outputs="..\build_VS\WAMIT2_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat WAMIT2" Description="Running Registry for WAMIT2" Outputs="..\build_VS\WAMIT2_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat WAMIT2" Description="Running Registry for WAMIT2" Outputs="..\build_VS\WAMIT2_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat WAMIT2" Description="Running Registry for WAMIT2" Outputs="..\build_VS\WAMIT2_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\HydroDyn\Waves.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Waves" Description="Running Registry for Waves" Outputs="..\build_VS\Waves_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Waves" Description="Running Registry for Waves" Outputs="..\build_VS\Waves_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Waves" Description="Running Registry for Waves" Outputs="..\build_VS\Waves_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Waves" Description="Running Registry for Waves" Outputs="..\build_VS\Waves_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\HydroDyn\Waves2.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Waves2" Description="Running Registry for Waves2" Outputs="..\build_VS\Waves2_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Waves2" Description="Running Registry for Waves2" Outputs="..\build_VS\Waves2_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Waves2" Description="Running Registry for Waves2" Outputs="..\build_VS\Waves2_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Waves2" Description="Running Registry for Waves2" Outputs="..\build_VS\Waves2_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="Ice">
+		<Filter Name="IceDyn">
+		<File RelativePath="..\src\IceDyn\Registry_IceDyn.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IceDyn" Description="Running Registry for IceDyn" Outputs="..\build_VS\IceDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IceDyn" Description="Running Registry for IceDyn" Outputs="..\build_VS\IceDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IceDyn" Description="Running Registry for IceDyn" Outputs="..\build_VS\IceDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IceDyn" Description="Running Registry for IceDyn" Outputs="..\build_VS\IceDyn_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="IceFloe">
+		<File RelativePath="..\src\IceFloe\IceFloe_FASTRegistry.inp">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IceFloe" Description="Running Registry for IceFloe" Outputs="..\build_VS\IceFloe_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IceFloe" Description="Running Registry for IceFloe" Outputs="..\build_VS\IceFloe_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IceFloe" Description="Running Registry for IceFloe" Outputs="..\build_VS\IceFloe_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IceFloe" Description="Running Registry for IceFloe" Outputs="..\build_VS\IceFloe_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		</Filter>
+		<Filter Name="InflowWind">
+		<File RelativePath="..\src\InflowWind\IfW_BladedFFWind.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_BladedFFWind" Description="Running Registry for IfW_BladedFFWind" Outputs="..\build_VS\IfW_BladedFFWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_BladedFFWind" Description="Running Registry for IfW_BladedFFWind" Outputs="..\build_VS\IfW_BladedFFWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_BladedFFWind" Description="Running Registry for IfW_BladedFFWind" Outputs="..\build_VS\IfW_BladedFFWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_BladedFFWind" Description="Running Registry for IfW_BladedFFWind" Outputs="..\build_VS\IfW_BladedFFWind_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\InflowWind\IfW_HAWCWind.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_HAWCWind" Description="Running Registry for IfW_HAWCWindWind" Outputs="..\build_VS\IfW_HAWCWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_HAWCWind" Description="Running Registry for IfW_HAWCWindWind" Outputs="..\build_VS\IfW_HAWCWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_HAWCWind" Description="Running Registry for IfW_HAWCWindWind" Outputs="..\build_VS\IfW_HAWCWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_HAWCWind" Description="Running Registry for IfW_HAWCWindWind" Outputs="..\build_VS\IfW_HAWCWind_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\InflowWind\IfW_TSFFWind.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_TSFFWind" Description="Running Registry for IfW_TSFFWind" Outputs="..\build_VS\IfW_TSFFWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_TSFFWind" Description="Running Registry for IfW_TSFFWind" Outputs="..\build_VS\IfW_TSFFWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_TSFFWind" Description="Running Registry for IfW_TSFFWind" Outputs="..\build_VS\IfW_TSFFWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_TSFFWind" Description="Running Registry for IfW_TSFFWind" Outputs="..\build_VS\IfW_TSFFWind_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\InflowWind\IfW_UniformWind.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_UniformWind" Description="Running Registry for IfW_UniformWind" Outputs="..\build_VS\IfW_UniformWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_UniformWind" Description="Running Registry for IfW_UniformWind" Outputs="..\build_VS\IfW_UniformWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_UniformWind" Description="Running Registry for IfW_UniformWind" Outputs="..\build_VS\IfW_UniformWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_UniformWind" Description="Running Registry for IfW_UniformWind" Outputs="..\build_VS\IfW_UniformWind_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\InflowWind\IfW_UserWind.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_UserWind" Description="Running Registry for IfW_UserWind" Outputs="..\build_VS\IfW_UserWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_UserWind" Description="Running Registry for IfW_UserWind" Outputs="..\build_VS\IfW_UserWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_UserWind" Description="Running Registry for IfW_UserWind" Outputs="..\build_VS\IfW_UserWind_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat IfW_UserWind" Description="Running Registry for IfW_UserWind" Outputs="..\build_VS\IfW_UserWind_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\InflowWind\InflowWind.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat InflowWind" Description="Running Registry for InflowWind" Outputs="..\build_VS\InflowWind_Types.f90" AdditionalDependencies="..\src\InflowWind\Reg-IfW_FFWind.txt;..\src\InflowWind\Reg-IfW_HHWind.txt"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat InflowWind" Description="Running Registry for InflowWind" Outputs="..\build_VS\InflowWind_Types.f90" AdditionalDependencies="..\src\InflowWind\Reg-IfW_FFWind.txt;..\src\InflowWind\Reg-IfW_HHWind.txt"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat InflowWind" Description="Running Registry for InflowWind" Outputs="..\build_VS\InflowWind_Types.f90" AdditionalDependencies="..\src\InflowWind\Reg-IfW_FFWind.txt;..\src\InflowWind\Reg-IfW_HHWind.txt"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat InflowWind" Description="Running Registry for InflowWind" Outputs="..\build_VS\InflowWind_Types.f90" AdditionalDependencies="..\src\InflowWind\Reg-IfW_FFWind.txt;..\src\InflowWind\Reg-IfW_HHWind.txt"/></FileConfiguration></File>
+		<File RelativePath="..\src\InflowWind\Lidar.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Lidar" Description="Running Registry for Lidar" Outputs="..\build_VS\Lidar_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Lidar" Description="Running Registry for Lidar" Outputs="..\build_VS\Lidar_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Lidar" Description="Running Registry for Lidar" Outputs="..\build_VS\Lidar_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat Lidar" Description="Running Registry for Lidar" Outputs="..\build_VS\Lidar_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="Mooring Lines">
+		<Filter Name="FEAMooring">
+		<File RelativePath="..\src\FEAMooring\FEAM_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat FEAMooring" Description="Running Registry for FEAMooring" Outputs="..\build_VS\FEAMooring_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat FEAMooring" Description="Running Registry for FEAMooring" Outputs="..\build_VS\FEAMooring_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat FEAMooring" Description="Running Registry for FEAMooring" Outputs="..\build_VS\FEAMooring_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat FEAMooring" Description="Running Registry for FEAMooring" Outputs="..\build_VS\FEAMooring_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="MAP">
+		<File RelativePath="..\src\MAP\MAP_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat MAP" Description="Running Registry for MAP" Outputs="..\build_VS\MAP_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat MAP" Description="Running Registry for MAP" Outputs="..\build_VS\MAP_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat MAP" Description="Running Registry for MAP" Outputs="..\build_VS\MAP_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat MAP" Description="Running Registry for MAP" Outputs="..\build_VS\MAP_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="MoorDyn">
+		<File RelativePath="..\src\MoorDyn\MoorDyn_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat MoorDyn" Description="Running Registry for MoorDyn" Outputs="..\build_VS\MoorDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat MoorDyn" Description="Running Registry for MoorDyn" Outputs="..\build_VS\MoorDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat MoorDyn" Description="Running Registry for MoorDyn" Outputs="..\build_VS\MoorDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat MoorDyn" Description="Running Registry for MoorDyn" Outputs="..\build_VS\MoorDyn_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="OrcaFlex">
+		<File RelativePath="..\src\OrcaFlex\OrcaFlexInterface.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat OrcaFlexInterface" Description="Running Registry for OrcaFlex Interface" Outputs="..\build_VS\OrcaFlexInterface_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat OrcaFlexInterface" Description="Running Registry for OrcaFlex Interface" Outputs="..\build_VS\OrcaFlexInterface_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat OrcaFlexInterface" Description="Running Registry for OrcaFlex Interface" Outputs="..\build_VS\OrcaFlexInterface_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat OrcaFlexInterface" Description="Running Registry for OrcaFlex Interface" Outputs="..\build_VS\OrcaFlexInterface_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		</Filter>
+		<Filter Name="NWTC_Library">
+		<File RelativePath="..\src\NWTC_Library\Registry_NWTC_Library.txt"/>
+		</Filter>
+		<Filter Name="OpenFOAM Integration">
+		<File RelativePath="..\src\OpenFOAM\OpenFOAM_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat OpenFOAM" Description="Running Registry for OpenFOAM" Outputs="..\build_VS\OpenFOAM_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat OpenFOAM" Description="Running Registry for OpenFOAM" Outputs="..\build_VS\OpenFOAM_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat OpenFOAM" Description="Running Registry for OpenFOAM" Outputs="..\build_VS\OpenFOAM_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat OpenFOAM" Description="Running Registry for OpenFOAM" Outputs="..\build_VS\OpenFOAM_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="ServoDyn">
+		<File RelativePath="..\src\ServoDyn\ServoDyn_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat ServoDyn" Description="Running Registry for ServoDyn" Outputs="..\build_VS\ServoDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat ServoDyn" Description="Running Registry for ServoDyn" Outputs="..\build_VS\ServoDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat ServoDyn" Description="Running Registry for ServoDyn" Outputs="..\build_VS\ServoDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat ServoDyn" Description="Running Registry for ServoDyn" Outputs="..\build_VS\ServoDyn_Types.f90"/></FileConfiguration></File>
+		<File RelativePath="..\src\ServoDyn\TMD_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat TMD" Description="Running Registry for TMD" Outputs="..\build_VS\TMD_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat TMD" Description="Running Registry for TMD" Outputs="..\build_VS\TMD_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat TMD" Description="Running Registry for TMD" Outputs="..\build_VS\TMD_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat TMD" Description="Running Registry for TMD" Outputs="..\build_VS\TMD_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		<Filter Name="SubDyn">
+		<File RelativePath="..\src\SubDyn\SubDyn_Registry.txt">
+			<FileConfiguration Name="Debug|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat SubDyn" Description="Running Registry for SubDyn" Outputs="..\build_VS\SubDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat SubDyn" Description="Running Registry for SubDyn" Outputs="..\build_VS\SubDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Debug|x64">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat SubDyn" Description="Running Registry for SubDyn" Outputs="..\build_VS\SubDyn_Types.f90"/></FileConfiguration>
+			<FileConfiguration Name="Release|Win32">
+				<Tool Name="VFCustomBuildTool" CommandLine="CALL RunRegistry.bat SubDyn" Description="Running Registry for SubDyn" Outputs="..\build_VS\SubDyn_Types.f90"/></FileConfiguration></File>
+		</Filter>
+		</Filter>
+	</Files>
+<Globals/></VisualStudioProject>

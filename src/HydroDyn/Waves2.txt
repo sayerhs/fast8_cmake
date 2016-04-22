@@ -9,9 +9,9 @@
 #
 # Use ^ as a shortcut for the value in the same column from the previous line.
 ###################################################################################################################################
-# File last committed: $Date: 2014-10-02 12:22:40 -0600 (Thu, 02 Oct 2014) $
-# (File) Revision #: $Rev: 539 $
-# URL: $HeadURL: https://windsvn.nrel.gov/HydroDyn/branches/UserWaves/Source/RegistryFiles/Waves2.txt $
+# File last committed: $Date: 2016-03-28 12:43:49 -0600 (Mon, 28 Mar 2016) $
+# (File) Revision #: $Rev: 668 $
+# URL: $HeadURL: https://windsvn.nrel.gov/HydroDyn/trunk/Source/RegistryFiles/Waves2.txt $
 ###################################################################################################################################
 
 # ...... Include files (definitions from NWTC Library) ............................................................................
@@ -45,10 +45,10 @@ typedef     ^                 ^                 SiKi                 WaveElevxi 
 typedef     ^                 ^                 SiKi                 WaveElevyi        {:}      -        -        "yi-coordinates for points where the incident wave elevations can be output"  (meters)
 typedef     ^                 ^                 SiKi                 WaveElevXY        {:}{:}   -        -        "Supplied by Driver:  X-Y locations for WaveElevation output (for visualization).  Index 1 corresponds to X or Y coordinate.  Index 2 corresponds to point number."    -
 
-typedef     ^                 ^                 INTEGER              NWaveKin0         -        -        -        "Number of points where the incident wave kinematics will be computed"  -
-typedef     ^                 ^                 SiKi                 WaveKinxi0        {:}      -        -        "xi-coordinates for points where the incident wave kinematics will be computed; these are relative to the mean sea level"  (meters)
-typedef     ^                 ^                 SiKi                 WaveKinyi0        {:}      -        -        "yi-coordinates for points where the incident wave kinematics will be computed; these are relative to the mean sea level"  (meters)
-typedef     ^                 ^                 SiKi                 WaveKinzi0        {:}      -        -        "zi-coordinates for points where the incident wave kinematics will be computed; these are relative to the mean sea level"  (meters)
+typedef     ^                 ^                 INTEGER              NWaveKin          -        -        -        "Number of points where the incident wave kinematics will be computed"  -
+typedef     ^                 ^                 SiKi                 WaveKinxi         {:}      -        -        "xi-coordinates for points where the incident wave kinematics will be computed; these are relative to the mean sea level"  (meters)
+typedef     ^                 ^                 SiKi                 WaveKinyi         {:}      -        -        "yi-coordinates for points where the incident wave kinematics will be computed; these are relative to the mean sea level"  (meters)
+typedef     ^                 ^                 SiKi                 WaveKinzi         {:}      -        -        "zi-coordinates for points where the incident wave kinematics will be computed; these are relative to the mean sea level"  (meters)
 
 typedef     ^                 ^                 LOGICAL              WvDiffQTFF        -        -        -        "Full difference QTF second order forces flag" (-)
 typedef     ^                 ^                 LOGICAL              WvSumQTFF         -        -        -        "Full sum QTF second order forces flag" (-)
@@ -71,17 +71,29 @@ typedef     ^                 ^                 CHARACTER(10)        WriteOutput
 typedef     ^                 ^                 SiKi                 WaveElevSeries2   {:}{:}   -        -        "" (m)
 #                                                                                                                 "Instantaneous elevation time-series at each of the points given by WaveElevXY.  Used for making movies of the waves. First index is the timestep. Second index is XY point number corresponding to second index of WaveElevXY." (m)
 typedef     ^                 ^                 SiKi                 WaveAcc2D         {:}{:}{:} -       -        "" (m/s^2)
-#                                                                                                                 "Instantaneous 2nd-order difference frequency correction for the acceleration of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, accounting for stretching, at each of the NWaveKin0 points along a vertical line passing through the platform reference point where the incident wave kinematics will be computed" (m/s^2)
+#                                                                                                                 "Instantaneous 2nd-order difference frequency correction for the acceleration     of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, at each of the NWaveKin points where the incident wave kinematics will be computed" (m/s^2)
 typedef     ^                 ^                 SiKi                 WaveDynP2D        {:}{:}   -        -        "" (N/m^2)
-#                                                                                                                 "Instantaneous 2nd-order difference frequency correction for the dynamic pressure of incident waves                                                          , accounting for stretching, at each of the NWaveKin0 points along a vertical line passing through the platform reference point where the incident wave kinematics will be computed" (N/m^2)
+#                                                                                                                 "Instantaneous 2nd-order difference frequency correction for the dynamic pressure of incident waves                                                              , at each of the NWaveKin points where the incident wave kinematics will be computed" (N/m^2)
 typedef     ^                 ^                 SiKi                 WaveAcc2S         {:}{:}{:} -       -        "" (m/s^2)
-#                                                                                                                 "Instantaneous 2nd-order sum frequency correction for the acceleration of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, accounting for stretching, at each of the NWaveKin0 points along a vertical line passing through the platform reference point where the incident wave kinematics will be computed" (m/s^2)
+#                                                                                                                 "Instantaneous 2nd-order sum        frequency correction for the acceleration     of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, at each of the NWaveKin points where the incident wave kinematics will be computed" (m/s^2)
 typedef     ^                 ^                 SiKi                 WaveDynP2S        {:}{:}   -        -        "" (N/m^2)
-#                                                                                                                 "Instantaneous 2nd-order sum frequency correction for the dynamic pressure of incident waves                                                          , accounting for stretching, at each of the NWaveKin0 points along a vertical line passing through the platform reference point where the incident wave kinematics will be computed" (N/m^2)
+#                                                                                                                 "Instantaneous 2nd-order sum        frequency correction for the dynamic pressure of incident waves                                                              , at each of the NWaveKin points where the incident wave kinematics will be computed" (N/m^2)
 typedef     ^                 ^                 SiKi                 WaveVel2D         {:}{:}{:} -       -        "" (m/s)
-#                                                                                                                 "Instantaneous 2nd-order difference frequency correction for the velocity of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, accounting for stretching, at each of the NWaveKin0 points along a vertical line passing through the platform reference point where the incident wave kinematics will be computed (The values include both the velocity of incident waves and the velocity of current.)" (m/s)
-typedef     ^                 ^                 SiKi                 WaveVel2S         {:}{:}{:} -       -        "" (m/s)
-#                                                                                                                 "Instantaneous 2nd-order sum frequency correction for the velocity of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, accounting for stretching, at each of the NWaveKin0 points along a vertical line passing through the platform reference point where the incident wave kinematics will be computed (The values include both the velocity of incident waves and the velocity of current.)" (m/s)
+#                                                                                                                 "Instantaneous 2nd-order difference frequency correction for the velocity         of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, at each of the NWaveKin points where the incident wave kinematics will be computed (The values include both the velocity of incident waves and the velocity of current.)" (m/s)
+typedef     ^                 ^                 SiKi                 WaveVel2S         {:}{:}{:} -       -        "" (m/s)                                                                          
+#                                                                                                                 "Instantaneous 2nd-order sum        frequency correction for the velocity         of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, at each of the NWaveKin points where the incident wave kinematics will be computed (The values include both the velocity of incident waves and the velocity of current.)" (m/s)
+typedef     ^                 ^                 SiKi                 WaveAcc2D0        {:}{:}{:} -       -        "" (m/s^2)
+#                                                                                                                 "Instantaneous 2nd-order difference frequency correction for the acceleration     of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, at the location (xi,yi,0), for each of the NWaveKin points where the incident wave kinematics will be computed" (m/s^2)
+typedef     ^                 ^                 SiKi                 WaveDynP2D0       {:}{:}   -        -        "" (N/m^2)
+#                                                                                                                 "Instantaneous 2nd-order difference frequency correction for the dynamic pressure of incident waves                                                              , at the location (xi,yi,0), for each of the NWaveKin points where the incident wave kinematics will be computed" (N/m^2)
+typedef     ^                 ^                 SiKi                 WaveAcc2S0        {:}{:}{:} -       -        "" (m/s^2)
+#                                                                                                                 "Instantaneous 2nd-order sum        frequency correction for the acceleration     of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, at the location (xi,yi,0), for each of the NWaveKin points where the incident wave kinematics will be computed" (m/s^2)
+typedef     ^                 ^                 SiKi                 WaveDynP2S0       {:}{:}   -        -        "" (N/m^2)
+#                                                                                                                 "Instantaneous 2nd-order sum        frequency correction for the dynamic pressure of incident waves                                                              , at the location (xi,yi,0), for each of the NWaveKin points where the incident wave kinematics will be computed" (N/m^2)
+typedef     ^                 ^                 SiKi                 WaveVel2D0        {:}{:}{:} -       -        "" (m/s)
+#                                                                                                                 "Instantaneous 2nd-order difference frequency correction for the velocity         of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, at the location (xi,yi,0), for each of the NWaveKin points where the incident wave kinematics will be computed (The values include both the velocity of incident waves and the velocity of current.)" (m/s)
+typedef     ^                 ^                 SiKi                 WaveVel2S0        {:}{:}{:} -       -        "" (m/s)                                                                          
+#                                                                                                                 "Instantaneous 2nd-order sum        frequency correction for the velocity         of incident waves in the xi- (1), yi- (2), and zi- (3) directions, respectively, at the location (xi,yi,0), for each of the NWaveKin points where the incident wave kinematics will be computed (The values include both the velocity of incident waves and the velocity of current.)" (m/s)
 
 
 
@@ -99,10 +111,14 @@ typedef     ^              DiscreteStateType    SiKi                 DummyDiscSt
 typedef     ^              ConstraintStateType  SiKi                 DummyConstrState  -        -        -        "Remove this variable if you have constraint states"  -
 
 
-# Define any data that are not considered actual states here:
-#   e.g. data used only for efficiency purposes (indices for searching in an array,  copies of previous calculations of output at a given time, etc.)
-typedef     ^              OtherStateType       INTEGER              DummyOtherState   -        -        -        "Remove this variable if you have other states" -
-typedef     ^                ^                  INTEGER              LastIndWave       -        -        -        "Index for last interpolation step of 2nd order forces"   -
+# Define any other states, including integer or logical states here:
+typedef   ^               OtherStateType      IntKi                  DummyOtherState   -        -        -        "Remove this variable if you have other states" -
+
+
+# ..... Misc/Optimization variables.................................................................................................
+# Define any data that are used only for efficiency purposes (these variables are not associated with time):
+#   e.g. indices for searching in an array, large arrays that are local variables in any routine called multiple times, etc.
+typedef     ^                MiscVarType       INTEGER              LastIndWave       -        -        -        "Index for last interpolation step of 2nd order forces"   -
 
 
 # ..... Parameters ................................................................................................................

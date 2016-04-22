@@ -6,7 +6,7 @@
 ! "HydroDyn" (in HydroDyn_*) should be replaced with the module name or an abbreviation of it. Example: HD
 !..................................................................................................................................
 ! LICENSING
-! Copyright (C) 2013  National Renewable Energy Laboratory
+! Copyright (C) 2013-2015  National Renewable Energy Laboratory
 !
 !    This file is part of HydroDyn.
 !
@@ -23,8 +23,8 @@
 ! limitations under the License.
 !    
 !**********************************************************************************************************************************
-! File last committed: $Date: 2015-10-05 13:26:24 -0600 (Mon, 05 Oct 2015) $
-! (File) Revision #: $Rev: 647 $
+! File last committed: $Date: 2016-04-11 21:04:16 -0600 (Mon, 11 Apr 2016) $
+! (File) Revision #: $Rev: 670 $
 ! URL: $HeadURL: https://windsvn.nrel.gov/HydroDyn/trunk/Source/HydroDyn.f90 $
 !**********************************************************************************************************************************
 MODULE HydroDyn
@@ -46,7 +46,7 @@ MODULE HydroDyn
    PRIVATE
 
   
-   TYPE(ProgDesc), PARAMETER            :: HydroDyn_ProgDesc = ProgDesc( 'HydroDyn', 'v2.03.00c-adp', '05-Oct-2015' )
+   TYPE(ProgDesc), PARAMETER            :: HydroDyn_ProgDesc = ProgDesc( 'HydroDyn', 'v2.05.00', '15-Mar-2016' )
 
     
    
@@ -62,47 +62,179 @@ MODULE HydroDyn
    
    PUBLIC :: HydroDyn_CalcConstrStateResidual        ! Tight coupling routine for returning the constraint state residual
    PUBLIC :: HydroDyn_CalcContStateDeriv             ! Tight coupling routine for computing derivatives of continuous states
-   PUBLIC :: HydroDyn_UpdateDiscState                ! Tight coupling routine for updating discrete states
+   !PUBLIC :: HydroDyn_UpdateDiscState                ! Tight coupling routine for updating discrete states
       
-   !PUBLIC :: HydroDyn_JacobianPInput                 ! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete-
-   !                                                 !   (Xd), and constraint-state (Z) equations all with respect to the inputs (u)
-   !PUBLIC :: HydroDyn_JacobianPContState             ! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete-
-   !                                                 !   (Xd), and constraint-state (Z) equations all with respect to the continuous 
-   !                                                 !   states (x)
-   !PUBLIC :: HydroDyn_JacobianPDiscState             ! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete-
-   !                                                 !   (Xd), and constraint-state (Z) equations all with respect to the discrete 
-   !                                                 !   states (xd)
-   !PUBLIC :: HydroDyn_JacobianPConstrState           ! Routine to compute the Jacobians of the output (Y), continuous- (X), discrete-
-                                                    !   (Xd), and constraint-state (Z) equations all with respect to the constraint 
-                                                    !   states (z)
    
+   CONTAINS
+   
+SUBROUTINE WvStretch_Init(WaveStMod, WtrDpth, NStepWave, NNodes,  &
+                          NWaveElev, WaveElev, WaveKinzi, WaveTime, &
+                          WaveVel0, WaveAcc0, WaveDynP0, &
+                          WavePVel0, WavePAcc0, WavePDynP0, &
+                          WaveVel , WaveAcc , WaveDynP , &
+                          nodeInWater, ErrStat, ErrMsg )
+
  
-CONTAINS
+   INTEGER,          INTENT(IN   )  :: WaveStMod
+   REAL(SiKi),       INTENT(IN   )  :: WtrDpth
+   INTEGER,          INTENT(IN   )  :: NStepWave
+   INTEGER,          INTENT(IN   )  :: NNodes              !< TODO: WHY are there both NNodes and NWaveElev ??? GJH 2/1/2016
+   INTEGER,          INTENT(IN   )  :: NWaveElev
+   REAL(SiKi),       INTENT(IN   )  :: WaveElev(0:,:)
+   REAL(SiKi),       INTENT(IN   )  :: WaveKinzi(:)
+   REAL(SiKi),       INTENT(IN   )  :: WaveTime(0:)
+   REAL(SiKi),       INTENT(IN   )  :: WaveVel0(0:,:,:)               !< Wave velocity in Global coordinate system at Z = 0.  Each point in this array has a corresponding entry (same index #) in the WaveVel array
+   REAL(SiKi),       INTENT(IN   )  :: WaveAcc0(0:,:,:)
+   REAL(SiKi),       INTENT(IN   )  :: WaveDynP0(0:,:)
+   REAL(SiKi),       INTENT(IN   )  :: WavePVel0(0:,:,:)               !< Wave velocity in Global coordinate system at Z = 0.  Each point in this array has a corresponding entry (same index #) in the WaveVel array
+   REAL(SiKi),       INTENT(IN   )  :: WavePAcc0(0:,:,:)
+   REAL(SiKi),       INTENT(IN   )  :: WavePDynP0(0:,:)
+   REAL(SiKi),       INTENT(INOUT)  :: WaveVel(0:,:,:)
+   REAL(SiKi),       INTENT(INOUT)  :: WaveAcc(0:,:,:)
+   REAL(SiKi),       INTENT(INOUT)  :: WaveDynP(0:,:)
+   INTEGER(IntKi),   INTENT(INOUT)  :: nodeInWater(0:,:)
+   INTEGER(IntKi),   INTENT(  OUT)  :: ErrStat             !< Error status of the operation
+   CHARACTER(*),     INTENT(  OUT)  :: ErrMsg      !< Error message if ErrStat /= ErrID_None
+
+      ! Local variables
+   INTEGER(IntKi) ::  I, J                            !< Local loop counters
+   REAL(SiKi) :: wavekinzloc ,WavePVel0loc
+   
+       ! Initialize ErrStat      
+   ErrStat = ErrID_None         
+   ErrMsg  = ""               
+      
+      
+   DO I = 0,NStepWave-1       ! Loop through all time steps
+       
+      DO J = 1,NNodes
+         
+         SELECT CASE ( WaveStMod )  ! Which model are we using to extrapolate the incident wave kinematics to the instantaneous free surface?
+
+            CASE ( 0 )                 ! None = no stretching.
+               ! Since we have no stretching, the wave kinematics between the seabed and
+               !   the mean sea level are left unchanged; below the seabed or above the
+               !   mean sea level, the wave kinematics are zero:                     
+               IF (   ( WaveKinzi(J) < -WtrDpth ) .OR. ( WaveKinzi(J) > 0.0          ) )  THEN   ! .TRUE. if the elevation of the point defined by WaveKinzi(J) lies below the seabed or above mean sea level (exclusive)
+
+                  WaveDynP   (I,J  )  = 0.0
+                  WaveVel    (I,J,:)  = 0.0
+                  WaveAcc    (I,J,:)  = 0.0
+                  nodeInWater(I,J  )  = 0
+               ELSE   
+                  nodeInWater(I,J  )  = 1
+               END IF
+            CASE ( 1 )                 ! Vertical stretching.
+
+
+               ! Vertical stretching says that the wave kinematics above the mean sea level
+               !   equal the wave kinematics at the mean sea level.  The wave kinematics
+               !   below the mean sea level are left unchanged:
+               IF (   ( WaveKinzi(J) < -WtrDpth ) .OR. ( WaveKinzi(J) > WaveElev(I,J) ) ) THEN   ! .TRUE. if the elevation of the point defined by WaveKinzi(J) lies below the seabed or above the instantaneous wave elevation (exclusive)
+
+                  WaveDynP   (I,J  )  = 0.0
+                  WaveVel    (I,J,:)  = 0.0
+                  WaveAcc    (I,J,:)  = 0.0
+                  nodeInWater(I,J  )  = 0
+               ELSE 
+                  nodeInWater(I,J  )  = 1
+                  IF   ( WaveKinzi(J) >= 0.0_ReKi ) THEN
+                     ! Set the wave kinematics to the kinematics at mean sea level for locations above MSL, but below the wave elevation.
+                     WaveDynP   (I,J  )  = WaveDynP0  (I,J  )
+                     WaveVel    (I,J,:)  = WaveVel0   (I,J,:)
+                     WaveAcc    (I,J,:)  = WaveAcc0   (I,J,:)
+                  END IF
+                  ! Otherwise, do nothing because the kinematics have already be set correctly via the various Waves modules
+               END IF
+            
+
+
+
+            CASE ( 2 )                 ! Extrapolation stretching.
+
+
+            ! Extrapolation stretching uses a linear Taylor expansion of the wave
+            !   kinematics (and their partial derivatives with respect to z) at the mean
+            !   sea level to find the wave kinematics above the mean sea level.  The
+            !   wave kinematics below the mean sea level are left unchanged:
+
+              
+               IF (   ( WaveKinzi(J) < -WtrDpth ) .OR. ( WaveKinzi(J) > WaveElev(I,J) ) ) THEN   ! .TRUE. if the elevation of the point defined by WaveKinzi(J) lies below the seabed or above the instantaneous wave elevation (exclusive)
+
+                  WaveDynP   (I,J  )  = 0.0
+                  WaveVel    (I,J,:)  = 0.0
+                  WaveAcc    (I,J,:)  = 0.0
+                  nodeInWater(I,J  )  = 0
+               ELSE 
+                  nodeInWater(I,J  )  = 1
+                  wavekinzloc = WaveKinzi(J)
+                  WavePVel0loc = WavePVel0   (I,J,1)
+                  IF   ( WaveKinzi(J) >= 0.0_ReKi ) THEN
+                     ! Set the wave kinematics to the kinematics at mean sea level for locations above MSL, but below the wave elevation.
+                     WaveDynP   (I,J  )  = WaveDynP0  (I,J  ) + WaveKinzi(J)*WavePDynP0  (I,J  )
+                     WaveVel    (I,J,:)  = WaveVel0   (I,J,:) + WaveKinzi(J)*WavePVel0   (I,J,:)
+                     WaveAcc    (I,J,:)  = WaveAcc0   (I,J,:) + WaveKinzi(J)*WavePAcc0   (I,J,:)
+                  END IF
+                  ! Otherwise, do nothing because the kinematics have already be set correctly via the various Waves modules
+               END IF
+
+
+            CASE ( 3 )                 ! Wheeler stretching.
+
+
+            ! Wheeler stretching says that wave kinematics calculated using Airy theory
+            !   at the mean sea level should actually be applied at the instantaneous
+            !   free surface and that Airy wave kinematics computed at locations between
+            !   the seabed and the mean sea level should be shifted vertically to new
+            !   locations in proportion to their elevation above the seabed.
+            !
+            ! Computing the wave kinematics with Wheeler stretching requires that first
+            !   say that the wave kinematics we computed at the elevations defined by
+            !   the WaveKinzi0Prime(:) array are actual applied at the elevations found
+            !   by stretching the elevations in the WaveKinzi0Prime(:) array using the
+            !   instantaneous wave elevation--these new elevations are stored in the
+            !   WaveKinzi0St(:) array.  Next, we interpolate the wave kinematics
+            !   computed without stretching to the desired elevations (defined in the
+            !   WaveKinzi(:) array) using the WaveKinzi0St(:) array:
+
+ 
+         ENDSELECT
+      END DO                   ! J - All points where the incident wave kinematics will be computed
+   END DO                      ! I - All time steps
+   
+   ! Set the ending timestep to the same as the first timestep
+   WaveDynP (NStepWave,:  )  = WaveDynP (0,:  )
+   WaveVel  (NStepWave,:,:)  = WaveVel  (0,:,:)
+   WaveAcc  (NStepWave,:,:)  = WaveAcc  (0,:,:)
+         
+END SUBROUTINE WvStretch_Init
+   
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, InitOut, ErrStat, ErrMsg )
-! This routine is called at the start of the simulation to perform initialization steps. 
-! The parameters are set here and not changed during the simulation.
-! The initial states and initial guess for the input are defined.
+!> This routine is called at the start of the simulation to perform initialization steps. 
+!! The parameters are set here and not changed during the simulation.
+!! The initial states and initial guess for the input are defined.
+SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, m, Interval, InitOut, ErrStat, ErrMsg )
 !..................................................................................................................................
 
-      TYPE(HydroDyn_InitInputType),       INTENT(IN   )  :: InitInp     ! Input data for initialization routine. TODO: This does not follow the template due to the interface of HydroDyn_CopyInitInput()
-      TYPE(HydroDyn_InputType),           INTENT(  OUT)  :: u           ! An initial guess for the input; input mesh must be defined
-      TYPE(HydroDyn_ParameterType),       INTENT(  OUT)  :: p           ! Parameters      
-      TYPE(HydroDyn_ContinuousStateType), INTENT(  OUT)  :: x           ! Initial continuous states
-      TYPE(HydroDyn_DiscreteStateType),   INTENT(  OUT)  :: xd          ! Initial discrete states
-      TYPE(HydroDyn_ConstraintStateType), INTENT(  OUT)  :: z           ! Initial guess of the constraint states
-      TYPE(HydroDyn_OtherStateType),      INTENT(  OUT)  :: OtherState  ! Initial other/optimization states            
-      TYPE(HydroDyn_OutputType),          INTENT(  OUT)  :: y           ! Initial system outputs (outputs are not calculated; 
-                                                                        !   only the output mesh is initialized)
-      REAL(DbKi),                         INTENT(INOUT)  :: Interval    ! Coupling interval in seconds: the rate that 
-                                                                        !   (1) HydroDyn_UpdateStates() is called in loose coupling &
-                                                                        !   (2) HydroDyn_UpdateDiscState() is called in tight coupling.
-                                                                        !   Input is the suggested time from the glue code; 
-                                                                        !   Output is the actual coupling interval that will be used 
-                                                                        !   by the glue code.
-      TYPE(HydroDyn_InitOutputType),      INTENT(  OUT)  :: InitOut     ! Output for initialization routine
-      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat     ! Error status of the operation
-      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
+      TYPE(HydroDyn_InitInputType),       INTENT(IN   )  :: InitInp     !< Input data for initialization routine. TODO: This does not follow the template due to the interface of HydroDyn_CopyInitInput()
+      TYPE(HydroDyn_InputType),           INTENT(  OUT)  :: u           !< An initial guess for the input; input mesh must be defined
+      TYPE(HydroDyn_ParameterType),       INTENT(  OUT)  :: p           !< Parameters      
+      TYPE(HydroDyn_ContinuousStateType), INTENT(  OUT)  :: x           !< Initial continuous states
+      TYPE(HydroDyn_DiscreteStateType),   INTENT(  OUT)  :: xd          !< Initial discrete states
+      TYPE(HydroDyn_ConstraintStateType), INTENT(  OUT)  :: z           !< Initial guess of the constraint states
+      TYPE(HydroDyn_OtherStateType),      INTENT(  OUT)  :: OtherState  !< Initial other states            
+      TYPE(HydroDyn_OutputType),          INTENT(  OUT)  :: y           !< Initial system outputs (outputs are not calculated; 
+                                                                        !!   only the output mesh is initialized)
+      TYPE(HydroDyn_MiscVarType),         INTENT(  OUT)  :: m           !< Initial misc/optimization variables           
+      REAL(DbKi),                         INTENT(INOUT)  :: Interval    !< Coupling interval in seconds: the rate that 
+                                                                        !!   (1) HydroDyn_UpdateStates() is called in loose coupling &
+                                                                        !!   (2) HydroDyn_UpdateDiscState() is called in tight coupling.
+                                                                        !!   Input is the suggested time from the glue code; 
+                                                                        !!   Output is the actual coupling interval that will be used 
+                                                                        !!   by the glue code.
+      TYPE(HydroDyn_InitOutputType),      INTENT(  OUT)  :: InitOut     !< Output for initialization routine
+      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat     !< Error status of the operation
+      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg      !< Error message if ErrStat /= ErrID_None
 
       
          ! Local variables
@@ -124,7 +256,8 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
       TYPE(Waves_ContinuousStateType)        :: Waves_x                             ! Waves module initial continuous states
       TYPE(Waves_DiscreteStateType)          :: Waves_xd                            ! Waves module discrete states
       TYPE(Waves_ConstraintStateType)        :: Waves_z                             ! Waves module initial guess of the constraint states
-      TYPE(Waves_OtherStateType)             :: WavesOtherState                     ! Waves module other/optimization states 
+      TYPE(Waves_OtherStateType)             :: WavesOtherState                     ! Waves module other states 
+      TYPE(Waves_MiscVarType)                :: Waves_m                             ! Waves module misc/optimization data 
       TYPE(Waves_OutputType)                 :: Waves_y                             ! Waves module outputs   
 
 
@@ -133,16 +266,10 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
       TYPE(Current_ContinuousStateType)      :: Current_x                           ! Current module initial continuous states
       TYPE(Current_DiscreteStateType)        :: Current_xd                          ! Current module discrete states
       TYPE(Current_ConstraintStateType)      :: Current_z                           ! Current module initial guess of the constraint states
-      TYPE(Current_OtherStateType)           :: CurrentOtherState                   ! Current module other/optimization states 
-      TYPE(Current_OutputType)               :: Current_y                           ! Wave module outputs   
+      TYPE(Current_OtherStateType)           :: CurrentOtherState                   ! Current module other states 
+      TYPE(Current_OutputType)               :: Current_y                           ! Current module outputs   
+      TYPE(Current_MiscVarType)              :: Current_m                           ! Current module misc/optimization data 
       
-!BJJ: TODO: I recommend you just put these in the main HydroDyn type(s) because otherwise you have to make local copies of these same variables in CalcOutput and/or UpdateStates anyway.
-      TYPE(WAMIT_ConstraintStateType)        :: WAMIT_z                             ! Initial guess of the constraint states
-      TYPE(WAMIT2_ConstraintStateType)       :: WAMIT2_z                             ! Initial guess of the constraint states
-      TYPE(Waves2_ConstraintStateType)       :: Waves2_z                             ! Initial guess of the constraint states
-      TYPE(Morison_ContinuousStateType)      :: Morison_x                           ! Morison continuous states
-      TYPE(Morison_DiscreteStateType)        :: Morison_xd                          ! Morison module discrete states
-      TYPE(Morison_ConstraintStateType)      :: Morison_z                           ! Morison  of the constraint states
  
 #ifdef USE_FIT
          ! FIT - related data
@@ -160,7 +287,24 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
       Real(ReKi)                             :: Np      
       Real(ReKi)                             :: dftreal
       Real(ReKi)                             :: dftimag 
-               
+   
+         ! Wave Stretching Data
+      REAL(SiKi), ALLOCATABLE  :: tmpWaveKinzi(:    )
+      INTEGER                  :: tmpNWaveElev
+      REAL(SiKi), ALLOCATABLE  :: tmpWaveElevxi(:    )
+      REAL(SiKi), ALLOCATABLE  :: tmpWaveElevyi(:    )
+      REAL(SiKi), ALLOCATABLE  :: WaveElevSt  (:,:  ) 
+      REAL(SiKi), ALLOCATABLE  :: WaveVel0    (:,:,:) 
+      REAL(SiKi), ALLOCATABLE  :: WaveAcc0    (:,:,:)                              
+      REAL(SiKi), ALLOCATABLE  :: WaveDynP0   (:,:  )  
+      REAL(SiKi), ALLOCATABLE  :: WaveVel2S0  (:,:,:)
+      REAL(SiKi), ALLOCATABLE  :: WaveAcc2S0  (:,:,:)                                   
+      REAL(SiKi), ALLOCATABLE  :: WaveDynP2S0 (:,:  )   
+      REAL(SiKi), ALLOCATABLE  :: WaveVel2D0  (:,:,:)    
+      REAL(SiKi), ALLOCATABLE  :: WaveAcc2D0  (:,:,:)                              
+      REAL(SiKi), ALLOCATABLE  :: WaveDynP2D0 (:,:  )                                     
+                                       
+                                                  
       INTEGER(IntKi)                         :: ErrStat2                            ! local error status
       CHARACTER(1024)                        :: ErrMsg2                             ! local error message
       CHARACTER(*), PARAMETER                :: RoutineName = 'HydroDyn_Init'
@@ -307,7 +451,7 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
          ! Initialize Current module
          
       CALL Current_Init(InitLocal%Current, Current_u, Current_p, Current_x, Current_xd, Current_z, CurrentOtherState, &
-                                 Current_y, Interval, Current_InitOut, ErrStat2, ErrMsg2 )   
+                                 Current_y, Current_m, Interval, Current_InitOut, ErrStat2, ErrMsg2 )   
          CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
          IF ( ErrStat >= AbortErrLev ) THEN
             CALL CleanUp()
@@ -337,9 +481,119 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
       IF (ALLOCATED(InitLocal%WaveElevXY)) CALL MOVE_ALLOC(InitLocal%WaveElevXY, InitLocal%Waves%WaveElevXY)  
  
          ! Initialize Waves module
+      
+!==========================================================================
+! Initialize Wave Stretching data for 1st Order Waves
+!==========================================================================
+      IF (InitLocal%Waves%WaveStMod > 0) THEN      
+            ! Allocate the temporary storage array for the WvKinxi
+         ALLOCATE ( tmpWaveKinzi(InitLocal%Waves%NWaveKin), STAT = ErrStat2 )
+         IF ( ErrStat2 /= 0 ) THEN
+            CALL SetErrStat( ErrID_Fatal,'Error allocating space for tmpWaveKinzi array.', ErrStat, ErrMsg, RoutineName)
+            CALL CleanUp()
+            RETURN
+         END IF
+            
+            
+         
+         tmpWaveKinzi = InitLocal%Waves%WaveKinzi
+         InitLocal%Waves%WaveKinzi = 0.0_ReKi         ! Force all zi coordinates to 0.0 for this version of the Waves initialization
+         
+         
+            ! We will use the user-requested wave elevation arrays to compute the wave elevations for stretching at ALL node locations.
+            ! We are going to store the user-requested wave elevation output locations so that we can restore them after we done.
+         IF (InitLocal%Waves%NWaveElev > 0) THEN
+            tmpNWaveElev = InitLocal%Waves%NWaveElev
+            CALL MOVE_ALLOC( InitLocal%Waves%WaveElevxi, tmpWaveElevxi  )  ! (from, to)
+            CALL MOVE_ALLOC( InitLocal%Waves%WaveElevyi, tmpWaveElevyi  ) 
+         END IF
+           
+           
+         ALLOCATE ( InitLocal%Waves%WaveElevxi(InitLocal%Waves%NWaveKin), STAT = ErrStat2 )
+         IF ( ErrStat2 /= 0 ) THEN
+            CALL SetErrStat( ErrID_Fatal,'Error allocating space for tmpWaveKinzi array.', ErrStat, ErrMsg, RoutineName)
+            CALL CleanUp()
+            RETURN
+         END IF
+         ALLOCATE ( InitLocal%Waves%WaveElevyi(InitLocal%Waves%NWaveKin), STAT = ErrStat2 )
+         IF ( ErrStat2 /= 0 ) THEN
+            CALL SetErrStat( ErrID_Fatal,'Error allocating space for tmpWaveKinzi array.', ErrStat, ErrMsg, RoutineName)
+            CALL CleanUp()
+            RETURN
+         END IF    
+         
+         InitLocal%Waves%NWaveElev  = InitLocal%Waves%NWaveKin
+         InitLocal%Waves%WaveElevxi = InitLocal%Waves%WaveKinxi
+         InitLocal%Waves%WaveElevyi = InitLocal%Waves%WaveKinyi
+         
+         
+         CALL Waves_Init(InitLocal%Waves, Waves_u, Waves_p, Waves_x, Waves_xd, Waves_z, WavesOtherState, &
+                                    Waves_y, Waves_m, Interval, Waves_InitOut, ErrStat2, ErrMsg2 )
+         CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
+         IF ( ErrStat >= AbortErrLev ) THEN
+            CALL CleanUp()
+            RETURN
+         END IF
+         
+            ! Store the wave elevations coming out of the Waves_Init for use in the stretching calculations
+         ALLOCATE ( WaveElevSt(0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin), STAT = ErrStat2 )
+         IF ( ErrStat2 /= 0 ) THEN
+            CALL SetErrStat( ErrID_Fatal,'Error allocating space for WaveElevSt array.', ErrStat, ErrMsg, RoutineName)
+            CALL CleanUp()
+            RETURN
+         END IF    
+         WaveElevSt = Waves_InitOut%WaveElev
+         
+            ! We need to reset the wave elevation arrays
+         DEALLOCATE(InitLocal%Waves%WaveElevxi)
+         DEALLOCATE(InitLocal%Waves%WaveElevyi)
+         InitLocal%Waves%NWaveElev = tmpNWaveElev
+         
+         IF (InitLocal%Waves%NWaveElev > 0) THEN
+            CALL MOVE_ALLOC( tmpWaveElevxi, InitLocal%Waves%WaveElevxi  )  ! (from, to)
+            CALL MOVE_ALLOC( tmpWaveElevyi, InitLocal%Waves%WaveElevyi  ) 
+         END IF
+         
+         ALLOCATE ( WaveDynP0 (0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin  ), STAT=ErrStat2 )
+         IF (ErrStat2 /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveDynP0.', ErrStat, ErrMsg, RoutineName)
+
+         ALLOCATE ( WaveVel0  (0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin,3), STAT=ErrStat2 )
+         IF (ErrStat2 /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveVel0.',  ErrStat, ErrMsg, RoutineName)
+
+         ALLOCATE ( WaveAcc0  (0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin,3), STAT=ErrStat2 )
+         IF (ErrStat2 /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveAcc0.',  ErrStat, ErrMsg, RoutineName)
+              
+         
+         IF ( ErrStat >= AbortErrLev ) THEN
+            CALL CleanUp()
+            RETURN         
+         END IF
+         
+               ! Copy the init output arrays into the MSL versions
+         WaveDynP0  =      Waves_InitOut%WaveDynP     
+         WaveAcc0   =      Waves_InitOut%WaveAcc  
+         WaveVel0   =      Waves_InitOut%WaveVel
+         
+         
+         InitLocal%Waves%WaveKinzi =  tmpWaveKinzi
+         
+            ! Deallocate data which will be allocated again within the Waves_Init routine
+         DEALLOCATE( Waves_InitOut%WaveDynP )
+         DEALLOCATE( Waves_InitOut%WaveAcc )
+         DEALLOCATE( Waves_InitOut%WaveVel )
+         DEALLOCATE( Waves_InitOut%PWaveDynP0 )
+         DEALLOCATE( Waves_InitOut%PWaveAcc0 )
+         DEALLOCATE( Waves_InitOut%PWaveVel0 )
+         DEALLOCATE( Waves_InitOut%WaveElevC0)   
+         DEALLOCATE( Waves_InitOut%WaveDirArr)   
+         DEALLOCATE( Waves_InitOut%WaveElev  )
+         DEALLOCATE( Waves_InitOut%WaveTime  )
+         DEALLOCATE( Waves_InitOut%NodeInWater  )
+      END IF       
+!==========================================================================     
           
       CALL Waves_Init(InitLocal%Waves, Waves_u, Waves_p, Waves_x, Waves_xd, Waves_z, WavesOtherState, &
-                                 Waves_y, Interval, Waves_InitOut, ErrStat2, ErrMsg2 )
+                                 Waves_y, Waves_m, Interval, Waves_InitOut, ErrStat2, ErrMsg2 )
       CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
       IF ( ErrStat >= AbortErrLev ) THEN
          CALL CleanUp()
@@ -379,7 +633,7 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
 
 
 
-      OtherState%LastIndWave = 1
+      m%LastIndWave = 1
 
       
       IF ( InitLocal%Waves%WaveMod /= 6 ) THEN
@@ -405,9 +659,116 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
    
    !bjj: note that this doesn't get called if .not. (InitLocal%Waves2%WvDiffQTFF .OR. InitLocal%Waves2%WvSumQTFF), so p%waves2%* never get set
    ! however, they get queried later in the code!!!! I've set these parameters in an "else" statement, below
-   
-            CALL Waves2_Init(InitLocal%Waves2, u%Waves2, p%Waves2, x%Waves2, xd%Waves2, Waves2_z, OtherState%Waves2, &
-                                    y%Waves2, Interval, InitOut%Waves2, ErrStat2, ErrMsg2 )
+
+!==========================================================================
+! Initialize Wave Stretching data for 2nd Order Waves
+!==========================================================================
+            IF (InitLocal%Waves%WaveStMod > 0) THEN      
+                  ! Set the wave kinematics zi locations to zero to generate kinematics at MSL
+               InitLocal%Waves2%WaveKinzi = 0
+         
+                  ! We will use the user-requested wave elevation arrays to compute the wave elevations for stretching at ALL node locations.
+                  ! We are going to store the user-requested wave elevation output locations so that we can restore them after we done.
+               IF (InitLocal%Waves2%NWaveElev > 0) THEN
+                  tmpNWaveElev = InitLocal%Waves2%NWaveElev
+                  CALL MOVE_ALLOC( InitLocal%Waves2%WaveElevxi, tmpWaveElevxi  )  ! (from, to)
+                  CALL MOVE_ALLOC( InitLocal%Waves2%WaveElevyi, tmpWaveElevyi  ) 
+               END IF
+           
+           
+               ALLOCATE ( InitLocal%Waves2%WaveElevxi(InitLocal%Waves2%NWaveKin), STAT = ErrStat2 )
+               IF ( ErrStat2 /= 0 ) THEN
+                  CALL SetErrStat( ErrID_Fatal,'Error allocating space for WaveElevxi array.', ErrStat, ErrMsg, RoutineName)
+                  CALL CleanUp()
+                  RETURN
+               END IF
+               ALLOCATE ( InitLocal%Waves2%WaveElevyi(InitLocal%Waves2%NWaveKin), STAT = ErrStat2 )
+               IF ( ErrStat2 /= 0 ) THEN
+                  CALL SetErrStat( ErrID_Fatal,'Error allocating space for WaveElevyi array.', ErrStat, ErrMsg, RoutineName)
+                  CALL CleanUp()
+                  RETURN
+               END IF    
+         
+               InitLocal%Waves2%NWaveElev  = InitLocal%Waves2%NWaveKin
+               InitLocal%Waves2%WaveElevxi = InitLocal%Waves2%WaveKinxi
+               InitLocal%Waves2%WaveElevyi = InitLocal%Waves2%WaveKinyi                        
+                  
+               CALL Waves2_Init(InitLocal%Waves2, m%u_Waves2, p%Waves2, x%Waves2, xd%Waves2, z%Waves2, OtherState%Waves2, &
+                                          y%Waves2, m%Waves2, Interval, InitOut%Waves2, ErrStat2, ErrMsg2 )
+                  CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
+                  IF ( ErrStat >= AbortErrLev ) THEN
+                     CALL CleanUp()
+                     RETURN
+                  END IF
+            
+  
+                  ! Store the wave elevations coming out of the Waves_Init for use in the stretching calculations      
+               WaveElevSt = WaveElevSt + p%Waves2%WaveElev2
+         
+                  ! We need to reset the wave elevation arrays
+               DEALLOCATE(InitLocal%Waves2%WaveElevxi)
+               DEALLOCATE(InitLocal%Waves2%WaveElevyi)
+               InitLocal%Waves2%NWaveElev = tmpNWaveElev
+         
+               IF (InitLocal%Waves2%NWaveElev > 0) THEN
+                  CALL MOVE_ALLOC( tmpWaveElevxi, InitLocal%Waves2%WaveElevxi  )  ! (from, to)
+                  CALL MOVE_ALLOC( tmpWaveElevyi, InitLocal%Waves2%WaveElevyi  ) 
+               END IF
+                  
+                  
+               ALLOCATE ( WaveDynP2D0 (0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin  ), STAT=ErrStat2 )
+               IF (ErrStat2 /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveDynP2D0.', ErrStat, ErrMsg, RoutineName)
+
+               ALLOCATE ( WaveVel2D0  (0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin,3), STAT=ErrStat2 )
+               IF (ErrStat2 /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveVel2D0.',  ErrStat, ErrMsg, RoutineName)
+
+               ALLOCATE ( WaveAcc2D0  (0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin,3), STAT=ErrStat2 )
+               IF (ErrStat2 /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveAcc2D0.',  ErrStat, ErrMsg, RoutineName)
+         
+               ALLOCATE ( WaveDynP2S0 (0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin  ), STAT=ErrStat2 )
+               IF (ErrStat2 /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveDynP2S0.', ErrStat, ErrMsg, RoutineName)
+
+               ALLOCATE ( WaveVel2S0  (0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin,3), STAT=ErrStat2 )
+               IF (ErrStat2 /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveVel2S0.',  ErrStat, ErrMsg, RoutineName)
+
+               ALLOCATE ( WaveAcc2S0  (0:Waves_InitOut%NStepWave,InitLocal%Waves%NWaveKin,3), STAT=ErrStat2 )
+               IF (ErrStat2 /= 0) CALL SetErrStat(ErrID_Fatal,'Cannot allocate array WaveAcc2S0.',  ErrStat, ErrMsg, RoutineName)      
+         
+               IF ( ErrStat >= AbortErrLev ) THEN
+                  CALL CleanUp()
+                  RETURN         
+               END IF
+
+                     ! Copy the init output arrays into the MSL versions
+               WaveDynP2D0  =      InitOut%Waves2%WaveDynP2D     
+               WaveAcc2D0   =      InitOut%Waves2%WaveAcc2D  
+               WaveVel2D0   =      InitOut%Waves2%WaveVel2D
+               WaveDynP2S0  =      InitOut%Waves2%WaveDynP2S     
+               WaveAcc2S0   =      InitOut%Waves2%WaveAcc2S  
+               WaveVel2S0   =      InitOut%Waves2%WaveVel2S
+         
+                  ! Reset the wave kinematics zi locations 
+               InitLocal%Waves2%WaveKinzi = InitLocal%Waves%WaveKinzi
+         
+                  ! Deallocate arrays which will be re-allocated in the next call to Waves2_Init
+               DEALLOCATE ( p%Waves2%WaveElev2        )
+               DEALLOCATE ( InitOut%Waves2%WaveVel2D  )
+               DEALLOCATE ( InitOut%Waves2%WaveAcc2D  )
+               DEALLOCATE ( InitOut%Waves2%WaveDynP2D )
+               DEALLOCATE ( InitOut%Waves2%WaveVel2S  )
+               DEALLOCATE ( InitOut%Waves2%WaveAcc2S  )
+               DEALLOCATE ( InitOut%Waves2%WaveDynP2S )
+               
+            END IF       
+!==========================================================================     
+            
+                               
+            
+            
+            
+            
+            CALL Waves2_Init(InitLocal%Waves2, m%u_Waves2, p%Waves2, x%Waves2, xd%Waves2, z%Waves2, OtherState%Waves2, &
+                                    y%Waves2, m%Waves2, Interval, InitOut%Waves2, ErrStat2, ErrMsg2 )
             CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
             IF ( ErrStat >= AbortErrLev ) THEN
                CALL CleanUp()
@@ -499,8 +860,8 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
                ! Initialize the WAMIT Calculations 
                !-----------------------------------------
               
-            CALL WAMIT_Init(InitLocal%WAMIT, u%WAMIT, p%WAMIT, x%WAMIT, xd%WAMIT, WAMIT_z, OtherState%WAMIT, &
-                                    y%WAMIT, Interval, InitOut%WAMIT, ErrStat2, ErrMsg2 )
+            CALL WAMIT_Init(InitLocal%WAMIT, m%u_WAMIT, p%WAMIT, x%WAMIT, xd%WAMIT, z%WAMIT, OtherState%WAMIT, &
+                                    y%WAMIT, m%WAMIT, Interval, InitOut%WAMIT, ErrStat2, ErrMsg2 )
             CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
             IF ( ErrStat >= AbortErrLev ) THEN
                CALL CleanUp()
@@ -560,8 +921,8 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
                CALL MOVE_ALLOC(Waves_InitOut%WaveDirArr, InitLocal%WAMIT2%WaveDirArr) 
                
                
-               CALL WAMIT2_Init(InitLocal%WAMIT2, u%WAMIT2, p%WAMIT2, x%WAMIT2, xd%WAMIT2, WAMIT2_z, OtherState%WAMIT2, &
-                                       y%WAMIT2, Interval, InitOut%WAMIT2, ErrStat2, ErrMsg2 )
+               CALL WAMIT2_Init(InitLocal%WAMIT2, m%u_WAMIT2, p%WAMIT2, x%WAMIT2, xd%WAMIT2, z%WAMIT2, OtherState%WAMIT2, &
+                                       y%WAMIT2, m%WAMIT2, Interval, InitOut%WAMIT2, ErrStat2, ErrMsg2 )
                CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
                IF ( ErrStat >= AbortErrLev ) THEN
                   CALL CleanUp()
@@ -660,9 +1021,9 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
          CALL MOVE_ALLOC( p%WaveTime,               InitLocal%Morison%WaveTime )
          
             ! Permanently move these wave values to Morison init input (and note they are potentially modified by 2nd order stuff before being sent to Morison)
-         CALL MOVE_ALLOC( Waves_InitOut%WaveAcc0,   InitLocal%Morison%WaveAcc0 )            
-         CALL MOVE_ALLOC( Waves_InitOut%WaveDynP0,  InitLocal%Morison%WaveDynP0 )         
-         CALL MOVE_ALLOC( Waves_InitOut%WaveVel0,   InitLocal%Morison%WaveVel0 )         
+         CALL MOVE_ALLOC( Waves_InitOut%WaveAcc,   InitLocal%Morison%WaveAcc )            
+         CALL MOVE_ALLOC( Waves_InitOut%WaveDynP,  InitLocal%Morison%WaveDynP )         
+         CALL MOVE_ALLOC( Waves_InitOut%WaveVel,   InitLocal%Morison%WaveVel )         
          CALL MOVE_ALLOC( Waves_InitOut%nodeInWater,InitLocal%Morison%nodeInWater )  ! moved to Morison%p%nodeInWater in the init routine
 
 
@@ -674,44 +1035,47 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
          IF ( p%Waves2%WvDiffQTFF ) THEN
 
                ! Dynamic pressure -- difference frequency terms
-            IF ( SIZE(InitLocal%Morison%WaveDynP0,DIM=1) /= SIZE(InitOut%Waves2%WaveDynP2D,DIM=1) .OR. &
-                 SIZE(InitLocal%Morison%WaveDynP0,DIM=2) /= SIZE(InitOut%Waves2%WaveDynP2D,DIM=2)) THEN
+            IF ( SIZE(InitLocal%Morison%WaveDynP,DIM=1) /= SIZE(InitOut%Waves2%WaveDynP2D,DIM=1) .OR. &
+                 SIZE(InitLocal%Morison%WaveDynP,DIM=2) /= SIZE(InitOut%Waves2%WaveDynP2D,DIM=2)) THEN
                CALL SetErrStat(ErrID_Fatal, &
-                  ' WaveDynP0 arrays for first and second order wave elevations are of different sizes.  '//NewLine// &
-                  'Morrison: '// TRIM(Num2LStr(SIZE(InitLocal%Morison%WaveDynP0,DIM=1)))//'x'//          &
-                                 TRIM(Num2LStr(SIZE(InitLocal%Morison%WaveDynP0,DIM=2)))//NewLine//      &
+                  ' WaveDynP arrays for first and second order wave elevations are of different sizes.  '//NewLine// &
+                  'Morrison: '// TRIM(Num2LStr(SIZE(InitLocal%Morison%WaveDynP,DIM=1)))//'x'//          &
+                                 TRIM(Num2LStr(SIZE(InitLocal%Morison%WaveDynP,DIM=2)))//NewLine//      &
                   'Waves2:   '// TRIM(Num2LStr(SIZE(InitOut%Waves2%WaveDynP2D,DIM=1)))//'x'//            &
                                  TRIM(Num2LStr(SIZE(InitOut%Waves2%WaveDynP2D,DIM=2))),                  &
                   ErrStat,ErrMsg,RoutineName)
                CALL CleanUp()
                RETURN
             ELSE
-               InitLocal%Morison%WaveDynP0 = InitLocal%Morison%WaveDynP0 + InitOut%Waves2%WaveDynP2D
+               InitLocal%Morison%WaveDynP = InitLocal%Morison%WaveDynP + InitOut%Waves2%WaveDynP2D
+               IF (InitLocal%Waves%WaveStMod > 0 ) WaveDynP0 = WaveDynP0 + WaveDynP2D0
             ENDIF
 
                ! Particle velocity -- difference frequency terms
-            IF ( SIZE(InitLocal%Morison%WaveVel0,DIM=1) /= SIZE(InitOut%Waves2%WaveVel2D,DIM=1) .OR. &
-                 SIZE(InitLocal%Morison%WaveVel0,DIM=2) /= SIZE(InitOut%Waves2%WaveVel2D,DIM=2) .OR. &
-                 SIZE(InitLocal%Morison%WaveVel0,DIM=3) /= SIZE(InitOut%Waves2%WaveVel2D,DIM=3)) THEN
+            IF ( SIZE(InitLocal%Morison%WaveVel,DIM=1) /= SIZE(InitOut%Waves2%WaveVel2D,DIM=1) .OR. &
+                 SIZE(InitLocal%Morison%WaveVel,DIM=2) /= SIZE(InitOut%Waves2%WaveVel2D,DIM=2) .OR. &
+                 SIZE(InitLocal%Morison%WaveVel,DIM=3) /= SIZE(InitOut%Waves2%WaveVel2D,DIM=3)) THEN
                CALL SetErrStat(ErrID_Fatal, &
                   ' WaveVel arrays for first and second order wave elevations are of different sizes.',ErrStat,ErrMsg,RoutineName)
                CALL CleanUp()
                RETURN
             ELSE
-               InitLocal%Morison%WaveVel0 = InitLocal%Morison%WaveVel0 + InitOut%Waves2%WaveVel2D
+               InitLocal%Morison%WaveVel = InitLocal%Morison%WaveVel + InitOut%Waves2%WaveVel2D
+               IF (InitLocal%Waves%WaveStMod > 0 ) WaveVel0 = WaveVel0 + WaveVel2D0
             ENDIF
 
 
                ! Particle acceleration -- difference frequency terms
-            IF ( SIZE(InitLocal%Morison%WaveAcc0,DIM=1) /= SIZE(InitOut%Waves2%WaveAcc2D,DIM=1) .OR. &
-                 SIZE(InitLocal%Morison%WaveAcc0,DIM=2) /= SIZE(InitOut%Waves2%WaveAcc2D,DIM=2) .OR. &
-                 SIZE(InitLocal%Morison%WaveAcc0,DIM=3) /= SIZE(InitOut%Waves2%WaveAcc2D,DIM=3)) THEN
+            IF ( SIZE(InitLocal%Morison%WaveAcc,DIM=1) /= SIZE(InitOut%Waves2%WaveAcc2D,DIM=1) .OR. &
+                 SIZE(InitLocal%Morison%WaveAcc,DIM=2) /= SIZE(InitOut%Waves2%WaveAcc2D,DIM=2) .OR. &
+                 SIZE(InitLocal%Morison%WaveAcc,DIM=3) /= SIZE(InitOut%Waves2%WaveAcc2D,DIM=3)) THEN
                CALL SetErrStat(ErrID_Fatal, &
                   ' WaveAcc arrays for first and second order wave elevations are of different sizes.',ErrStat,ErrMsg,RoutineName)
                CALL CleanUp()
                RETURN
             ELSE
-               InitLocal%Morison%WaveAcc0 = InitLocal%Morison%WaveAcc0 + InitOut%Waves2%WaveAcc2D
+               InitLocal%Morison%WaveAcc = InitLocal%Morison%WaveAcc + InitOut%Waves2%WaveAcc2D
+               IF (InitLocal%Waves%WaveStMod > 0 ) WaveAcc0 = WaveAcc0 + WaveAcc2D0
             ENDIF
 
          ENDIF ! second order wave kinematics difference frequency results
@@ -720,59 +1084,79 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
          IF ( p%Waves2%WvSumQTFF ) THEN
 
                ! Dynamic pressure -- sum frequency terms
-            IF ( SIZE(InitLocal%Morison%WaveDynP0,DIM=1) /= SIZE(InitOut%Waves2%WaveDynP2S,DIM=1) .OR. &
-                 SIZE(InitLocal%Morison%WaveDynP0,DIM=2) /= SIZE(InitOut%Waves2%WaveDynP2S,DIM=2)) THEN
+            IF ( SIZE(InitLocal%Morison%WaveDynP,DIM=1) /= SIZE(InitOut%Waves2%WaveDynP2S,DIM=1) .OR. &
+                 SIZE(InitLocal%Morison%WaveDynP,DIM=2) /= SIZE(InitOut%Waves2%WaveDynP2S,DIM=2)) THEN
                CALL SetErrStat(ErrID_Fatal, &
-                  ' WaveDynP0 arrays for first and second order wave elevations are of different sizes.  '//NewLine// &
-                  'Morrison: '// TRIM(Num2LStr(SIZE(InitLocal%Morison%WaveDynP0,DIM=1)))//'x'//          &
-                                 TRIM(Num2LStr(SIZE(InitLocal%Morison%WaveDynP0,DIM=2)))//NewLine//      &
+                  ' WaveDynP arrays for first and second order wave elevations are of different sizes.  '//NewLine// &
+                  'Morrison: '// TRIM(Num2LStr(SIZE(InitLocal%Morison%WaveDynP,DIM=1)))//'x'//          &
+                                 TRIM(Num2LStr(SIZE(InitLocal%Morison%WaveDynP,DIM=2)))//NewLine//      &
                   'Waves2:   '// TRIM(Num2LStr(SIZE(InitOut%Waves2%WaveDynP2D,DIM=1)))//'x'//            &
                                  TRIM(Num2LStr(SIZE(InitOut%Waves2%WaveDynP2D,DIM=2))),                  &
                   ErrStat,ErrMsg,RoutineName)
                CALL CleanUp()
                RETURN
             ELSE
-               InitLocal%Morison%WaveDynP0 = InitLocal%Morison%WaveDynP0 + InitOut%Waves2%WaveDynP2S
+               InitLocal%Morison%WaveDynP = InitLocal%Morison%WaveDynP + InitOut%Waves2%WaveDynP2S
+               IF (InitLocal%Waves%WaveStMod > 0 ) WaveDynP0 = WaveDynP0 + WaveDynP2S0
             ENDIF
 
                ! Particle velocity -- sum frequency terms
-            IF ( SIZE(InitLocal%Morison%WaveVel0,DIM=1) /= SIZE(InitOut%Waves2%WaveVel2S,DIM=1) .OR. &
-                 SIZE(InitLocal%Morison%WaveVel0,DIM=2) /= SIZE(InitOut%Waves2%WaveVel2S,DIM=2) .OR. &
-                 SIZE(InitLocal%Morison%WaveVel0,DIM=3) /= SIZE(InitOut%Waves2%WaveVel2S,DIM=3)) THEN
+            IF ( SIZE(InitLocal%Morison%WaveVel,DIM=1) /= SIZE(InitOut%Waves2%WaveVel2S,DIM=1) .OR. &
+                 SIZE(InitLocal%Morison%WaveVel,DIM=2) /= SIZE(InitOut%Waves2%WaveVel2S,DIM=2) .OR. &
+                 SIZE(InitLocal%Morison%WaveVel,DIM=3) /= SIZE(InitOut%Waves2%WaveVel2S,DIM=3)) THEN
                CALL SetErrStat(ErrID_Fatal, &
                   ' WaveVel arrays for first and second order wave elevations are of different sizes.',ErrStat,ErrMsg,RoutineName)
                CALL CleanUp()
                RETURN
             ELSE
-               InitLocal%Morison%WaveVel0 = InitLocal%Morison%WaveVel0 + InitOut%Waves2%WaveVel2S
+               InitLocal%Morison%WaveVel = InitLocal%Morison%WaveVel + InitOut%Waves2%WaveVel2S
+               IF (InitLocal%Waves%WaveStMod > 0 ) WaveVel0 = WaveVel0 + WaveVel2S0
             ENDIF
 
                ! Particle velocity -- sum frequency terms
-            IF ( SIZE(InitLocal%Morison%WaveAcc0,DIM=1) /= SIZE(InitOut%Waves2%WaveAcc2S,DIM=1) .OR. &
-                 SIZE(InitLocal%Morison%WaveAcc0,DIM=2) /= SIZE(InitOut%Waves2%WaveAcc2S,DIM=2) .OR. &
-                 SIZE(InitLocal%Morison%WaveAcc0,DIM=3) /= SIZE(InitOut%Waves2%WaveAcc2S,DIM=3)) THEN
+            IF ( SIZE(InitLocal%Morison%WaveAcc,DIM=1) /= SIZE(InitOut%Waves2%WaveAcc2S,DIM=1) .OR. &
+                 SIZE(InitLocal%Morison%WaveAcc,DIM=2) /= SIZE(InitOut%Waves2%WaveAcc2S,DIM=2) .OR. &
+                 SIZE(InitLocal%Morison%WaveAcc,DIM=3) /= SIZE(InitOut%Waves2%WaveAcc2S,DIM=3)) THEN
                CALL SetErrStat(ErrID_Fatal, &
                   ' WaveAcc arrays for first and second order wave elevations are of different sizes.',ErrStat,ErrMsg,RoutineName)
                CALL CleanUp()
                RETURN
             ELSE
-               InitLocal%Morison%WaveAcc0 = InitLocal%Morison%WaveAcc0 + InitOut%Waves2%WaveAcc2S
+               InitLocal%Morison%WaveAcc = InitLocal%Morison%WaveAcc + InitOut%Waves2%WaveAcc2S
+               IF (InitLocal%Waves%WaveStMod > 0 ) WaveAcc0 = WaveAcc0 + WaveAcc2S0
             ENDIF
 
          ENDIF ! second order wave kinematics sum frequency results
 
-
-
+!==============================================================================
+         ! TODO: 1/29/2016 GJH
+         ! This is where we need to perform Wave Stretching, now that the wave kinematics have been combined.
+         ! We will call a new subroutine to perform this work. 
+         ! As an input, this code need the kinematics at the (X,Y,0) location which in a Z-line above/below all the nodes where kinematics are computed.
+         ! This code will alter the kinematics for stretching AND alter the nodeInWater array based on the combined wave elevation information
+         IF (InitLocal%Waves%WaveStMod > 0 ) THEN
+            call WvStretch_Init( InitLocal%Waves%WaveStMod, InitLocal%Waves%WtrDpth, InitLocal%Morison%NStepWave, InitLocal%Morison%NNodes,  &
+                              p%NWaveElev, WaveElevSt, InitLocal%Waves%WaveKinzi, InitLocal%Morison%WaveTime, &
+                              WaveVel0, WaveAcc0, WaveDynP0, &
+                              Waves_InitOut%PWaveVel0, Waves_InitOut%PWaveAcc0, Waves_InitOut%PWaveDynP0, &
+                              InitLocal%Morison%WaveVel, InitLocal%Morison%WaveAcc, InitLocal%Morison%WaveDynP, &
+                              InitLocal%Morison%nodeInWater, ErrStat, ErrMsg )  
+            DEALLOCATE(WaveElevSt)
+            DEALLOCATE(WaveVel0)
+            DEALLOCATE(WaveAcc0)
+            DEALLOCATE(WaveDynP0)
+         END IF
+!==============================================================================
          ! In this version, this can only be TRUE if the precomiler flag WRITE_WV_KIN set and WaveMod not equal to 5 or 6 and WvKinFile is a valid string  
          IF ( ( InitLocal%Waves%WaveMod == 5 .OR. InitLocal%Waves%WaveMod == 6 ) .AND.  InitLocal%Echo ) THEN
             call HDOut_WriteWvKinFiles( TRIM(InitLocal%Waves%WvKinFile)//'_ech', HydroDyn_ProgDesc, InitLocal%Morison%NStepWave, InitLocal%Morison%NNodes,  &
-                                             p%NWaveElev, InitLocal%Morison%nodeInWater, p%WaveElev, InitLocal%Waves%WaveKinzi0, InitLocal%Morison%WaveTime, &
-                                        InitLocal%Morison%WaveVel0, InitLocal%Morison%WaveAcc0, InitLocal%Morison%WaveDynP0, &
+                                             p%NWaveElev, InitLocal%Morison%nodeInWater, p%WaveElev, InitLocal%Waves%WaveKinzi, InitLocal%Morison%WaveTime, &
+                                        InitLocal%Morison%WaveVel, InitLocal%Morison%WaveAcc, InitLocal%Morison%WaveDynP, &
                                         ErrStat, ErrMsg )  
          ELSE IF (InitLocal%Waves%WriteWvKin ) THEN
             call HDOut_WriteWvKinFiles( TRIM(InitLocal%Waves%WvKinFile), HydroDyn_ProgDesc, InitLocal%Morison%NStepWave, InitLocal%Morison%NNodes,  &
-                                             p%NWaveElev, InitLocal%Morison%nodeInWater, p%WaveElev, InitLocal%Waves%WaveKinzi0, InitLocal%Morison%WaveTime, &
-                                        InitLocal%Morison%WaveVel0, InitLocal%Morison%WaveAcc0, InitLocal%Morison%WaveDynP0, &
+                                             p%NWaveElev, InitLocal%Morison%nodeInWater, p%WaveElev, InitLocal%Waves%WaveKinzi, InitLocal%Morison%WaveTime, &
+                                        InitLocal%Morison%WaveVel, InitLocal%Morison%WaveAcc, InitLocal%Morison%WaveDynP, &
                                         ErrStat, ErrMsg )  
          END IF
 
@@ -790,8 +1174,8 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
         
             ! Initialize the Morison Element Calculations 
       
-         CALL Morison_Init(InitLocal%Morison, u%Morison, p%Morison, Morison_x, Morison_xd, Morison_z, OtherState%Morison, &
-                               y%Morison, Interval, InitOut%Morison, ErrStat2, ErrMsg2 )
+         CALL Morison_Init(InitLocal%Morison, u%Morison, p%Morison, x%Morison, xd%Morison, z%Morison, OtherState%Morison, &
+                               y%Morison, m%Morison, Interval, InitOut%Morison, ErrStat2, ErrMsg2 )
          CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
          IF ( ErrStat >= AbortErrLev ) THEN
             CALL CleanUp()
@@ -805,38 +1189,38 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
          IF ( u%Morison%DistribMesh%Committed ) THEN
                   ! we need the translation displacement mesh for loads transfer:
             CALL MeshCopy ( SrcMesh  = u%Morison%DistribMesh            &
-                    , DestMesh = OtherState%MrsnDistribMesh_position   &
+                    , DestMesh = m%MrsnDistribMesh_position   &
                     , CtrlCode = MESH_NEWCOPY        &
                     , IOS      = COMPONENT_INPUT     &
                     , TranslationDisp = .TRUE.       &
                     , ErrStat  = ErrStat2            &
                     , ErrMess  = ErrMsg2              )  ! automatically sets    DestMesh%RemapFlag = .TRUE.
                     
-               CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'HydroDyn_Init:OtherState%MrsnDistribMesh_position')
+               CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'HydroDyn_Init:m%MrsnDistribMesh_position')
                IF ( ErrStat >= AbortErrLev ) THEN
                   CALL CleanUp()
                   RETURN
                END IF
-            OtherState%MrsnDistribMesh_position%TranslationDisp = 0.0  ! bjj: this is actually initialized in the ModMesh module, but I'll do it here anyway.
+            m%MrsnDistribMesh_position%TranslationDisp = 0.0  ! bjj: this is actually initialized in the ModMesh module, but I'll do it here anyway.
             
          END IF
          
          IF ( u%Morison%LumpedMesh%Committed ) THEN
                   ! we need the translation displacement mesh for loads transfer:
             CALL MeshCopy ( SrcMesh  = u%Morison%LumpedMesh           &
-                    , DestMesh = OtherState%MrsnLumpedMesh_position   &
+                    , DestMesh = m%MrsnLumpedMesh_position   &
                     , CtrlCode = MESH_NEWCOPY        &
                     , IOS      = COMPONENT_INPUT     &
                     , TranslationDisp = .TRUE.       &
                     , ErrStat  = ErrStat2            &
                     , ErrMess  = ErrMsg2             )  ! automatically sets    DestMesh%RemapFlag = .TRUE.
                     
-            CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'HydroDyn_Init:OtherState%MrsnLumpedMesh_position')
+            CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,'HydroDyn_Init:m%MrsnLumpedMesh_position')
             IF ( ErrStat >= AbortErrLev ) THEN
                CALL CleanUp()
                RETURN
             END IF
-            OtherState%MrsnLumpedMesh_position%TranslationDisp = 0.0  ! bjj: this is actually initialized in the ModMesh module, but I'll do it here anyway.
+            m%MrsnLumpedMesh_position%TranslationDisp = 0.0  ! bjj: this is actually initialized in the ModMesh module, but I'll do it here anyway.
             
          END IF
             ! Verify that Morison_Init() did not request a different Interval!
@@ -850,6 +1234,7 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
       END IF  ! ( InitLocal%Morison%NMembers > 0 )
     
 !===============================================
+      p%PotMod = InitLocal%Potmod      
       IF ( InitLocal%UnSum > 0 ) THEN
       
          IF (InitLocal%Waves%WaveMod /= 0 .AND. InitLocal%Waves%WaveMod /= 6)  THEN
@@ -870,7 +1255,7 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
             END DO
          END IF
          
-         p%PotMod = InitLocal%Potmod
+         
          IF ( InitLocal%PotMod == 1 .AND.  InitLocal%WAMIT%RdtnMod == 1) THEN
             ! Write the header for this section
             WRITE( InitLocal%UnSum,  '(//)' ) 
@@ -893,10 +1278,10 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
       
          ! Deallocate any remaining Waves Output data
       IF(ALLOCATED( Waves_InitOut%WaveElevC0 ))  DEALLOCATE( Waves_InitOut%WaveElevC0 )
-      IF(ALLOCATED( Waves_InitOut%WaveAcc0   ))  DEALLOCATE( Waves_InitOut%WaveAcc0   )
-      IF(ALLOCATED( Waves_InitOut%WaveDynP0  ))  DEALLOCATE( Waves_InitOut%WaveDynP0  )
+      IF(ALLOCATED( Waves_InitOut%WaveAcc   ))  DEALLOCATE( Waves_InitOut%WaveAcc   )
+      IF(ALLOCATED( Waves_InitOut%WaveDynP  ))  DEALLOCATE( Waves_InitOut%WaveDynP  )
       IF(ALLOCATED( Waves_InitOut%WaveTime   ))  DEALLOCATE( Waves_InitOut%WaveTime   )
-      IF(ALLOCATED( Waves_InitOut%WaveVel0   ))  DEALLOCATE( Waves_InitOut%WaveVel0   )
+      IF(ALLOCATED( Waves_InitOut%WaveVel   ))  DEALLOCATE( Waves_InitOut%WaveVel   )
       IF(ALLOCATED( Waves_InitOut%WaveElevC0 ))  DEALLOCATE( Waves_InitOut%WaveElevC0 )
       !IF(ALLOCATED( InitLocal%WAMIT%WaveElevC0 ))  DEALLOCATE( InitLocal%WAMIT%WaveElevC0)
       
@@ -1010,7 +1395,7 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
       
          ! we need the translation displacement mesh for loads transfer:
       CALL MeshCopy ( SrcMesh  = u%Mesh            &
-                    , DestMesh = OtherState%AllHdroOrigin_position   &
+                    , DestMesh = m%AllHdroOrigin_position   &
                     , CtrlCode = MESH_NEWCOPY        &
                     , IOS      = COMPONENT_INPUT     &
                     , TranslationDisp = .TRUE.       &
@@ -1022,7 +1407,7 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
             CALL CleanUp()
             RETURN
          END IF
-      OtherState%AllHdroOrigin_position%TranslationDisp = 0.0  ! bjj: this is actually initialized in the ModMesh module, but I'll do it here anyway.
+      m%AllHdroOrigin_position%TranslationDisp = 0.0  ! bjj: this is actually initialized in the ModMesh module, but I'll do it here anyway.
       
      
          ! Create the Output file if requested
@@ -1035,7 +1420,7 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
       p%OutSFmt       = InitLocal%OutSFmt
       p%NumOuts       = InitLocal%NumOuts
       
-      CALL HDOUT_Init( HydroDyn_ProgDesc, InitLocal, y,  p, OtherState, InitOut, ErrStat2, ErrMsg2 )
+      CALL HDOUT_Init( HydroDyn_ProgDesc, InitLocal, y,  p, m, InitOut, ErrStat2, ErrMsg2 )
       
          CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
          IF ( ErrStat >= AbortErrLev ) THEN
@@ -1044,8 +1429,8 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
          END IF
       
          ! Create some mesh mapping data
-      CALL MeshCopy (   SrcMesh      = y%Mesh               &
-                     ,DestMesh     = OtherState%y_mapped    &
+      CALL MeshCopy ( SrcMesh      = y%Mesh                 &
+                     ,DestMesh     = m%y_mapped             &
                      ,CtrlCode     = MESH_NEWCOPY           &
                      ,IOS          = COMPONENT_OUTPUT       &
                      ,ErrStat      = ErrStat2               &
@@ -1054,11 +1439,11 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
                      ,Moment       = .TRUE.                 )
           
          CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
-      OtherState%y_mapped%RemapFlag  = .TRUE.
+      m%y_mapped%RemapFlag  = .TRUE.
  
-      CALL MeshMapCreate( y%Mesh,                OtherState%y_mapped, OtherState%HD_MeshMap%HD_P_2_WRP_P, ErrStat2, ErrMsg2  );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
-      CALL MeshMapCreate( y%Morison%LumpedMesh,  OtherState%y_mapped, OtherState%HD_MeshMap%M_P_2_WRP_P,  ErrStat2, ErrMsg2  );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
-      CALL MeshMapCreate( y%Morison%DistribMesh, OtherState%y_mapped, OtherState%HD_MeshMap%M_L_2_WRP_P,  ErrStat2, ErrMsg2  );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
+      CALL MeshMapCreate( y%Mesh,                m%y_mapped, m%HD_MeshMap%HD_P_2_WRP_P, ErrStat2, ErrMsg2  );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
+      CALL MeshMapCreate( y%Morison%LumpedMesh,  m%y_mapped, m%HD_MeshMap%M_P_2_WRP_P,  ErrStat2, ErrMsg2  );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
+      CALL MeshMapCreate( y%Morison%DistribMesh, m%y_mapped, m%HD_MeshMap%M_L_2_WRP_P,  ErrStat2, ErrMsg2  );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
       
          IF ( ErrStat >= AbortErrLev ) THEN
             CALL CleanUp()
@@ -1078,10 +1463,7 @@ SUBROUTINE HydroDyn_Init( InitInp, u, p, x, xd, z, OtherState, y, Interval, Init
          END IF
       END IF
       
-      
-         ! set unused variables so compiler doesn't complain:
-      z%DummyConstrState = 0.0_ReKi
-      
+            
          ! Destroy the local initialization data
       CALL CleanUp()
          
@@ -1112,33 +1494,28 @@ CONTAINS
       CALL Current_DestroyConstrState( Current_z,          ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)      
       CALL Current_DestroyOtherState(  CurrentOtherState,  ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)      
       CALL Current_DestroyOutput(      Current_y,          ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)      
+      CALL Current_DestroyMisc(        Current_m,          ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)      
       
-
-      CALL WAMIT_DestroyConstrState(   WAMIT_z,            ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)      
-      CALL WAMIT2_DestroyConstrState(  WAMIT2_z,           ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
-      CALL Waves2_DestroyConstrState(  Waves2_z,           ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
-      
-      CALL Morison_DestroyContState(   Morison_x,          ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)      
-      CALL Morison_DestroyDiscState(   Morison_xd,         ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)      
-      CALL Morison_DestroyConstrState( Morison_z,          ErrStat2, ErrMsg2 );CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)                            
-      
+            
    END SUBROUTINE CleanUp
 !................................
 END SUBROUTINE HydroDyn_Init
-!----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE HydroDyn_End( u, p, x, xd, z, OtherState, y, ErrStat, ErrMsg )
-! This routine is called at the end of the simulation.
-!..................................................................................................................................
 
-      TYPE(HydroDyn_InputType),           INTENT(INOUT)  :: u           ! System inputs
-      TYPE(HydroDyn_ParameterType),       INTENT(INOUT)  :: p           ! Parameters     
-      TYPE(HydroDyn_ContinuousStateType), INTENT(INOUT)  :: x           ! Continuous states
-      TYPE(HydroDyn_DiscreteStateType),   INTENT(INOUT)  :: xd          ! Discrete states
-      TYPE(HydroDyn_ConstraintStateType), INTENT(INOUT)  :: z           ! Constraint states
-      TYPE(HydroDyn_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states            
-      TYPE(HydroDyn_OutputType),          INTENT(INOUT)  :: y           ! System outputs
-      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat      ! Error status of the operation
-      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg       ! Error message if ErrStat /= ErrID_None
+
+!----------------------------------------------------------------------------------------------------------------------------------
+!> This routine is called at the end of the simulation.
+SUBROUTINE HydroDyn_End( u, p, x, xd, z, OtherState, y, m, ErrStat, ErrMsg )
+
+      TYPE(HydroDyn_InputType),           INTENT(INOUT)  :: u           !< System inputs
+      TYPE(HydroDyn_ParameterType),       INTENT(INOUT)  :: p           !< Parameters     
+      TYPE(HydroDyn_ContinuousStateType), INTENT(INOUT)  :: x           !< Continuous states
+      TYPE(HydroDyn_DiscreteStateType),   INTENT(INOUT)  :: xd          !< Discrete states
+      TYPE(HydroDyn_ConstraintStateType), INTENT(INOUT)  :: z           !< Constraint states
+      TYPE(HydroDyn_OtherStateType),      INTENT(INOUT)  :: OtherState  !< Other/optimization states            
+      TYPE(HydroDyn_OutputType),          INTENT(INOUT)  :: y           !< System outputs
+      TYPE(HydroDyn_MiscVarType),         INTENT(INOUT)  :: m           !< Initial misc/optimization variables           
+      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat     !< Error status of the operation
+      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg      !< Error message if ErrStat /= ErrID_None
 
 
 
@@ -1156,7 +1533,7 @@ SUBROUTINE HydroDyn_End( u, p, x, xd, z, OtherState, y, ErrStat, ErrMsg )
          ! and the current time has advanced since the last stored time step.
          
       IF ( p%OutSwtch == 1 .OR. p%OutSwtch == 3) THEN               
-         CALL HDOut_WriteOutputs( OtherState%LastOutTime, y, p, OtherState%Decimate, ErrStat, ErrMsg )         
+         CALL HDOut_WriteOutputs( m%LastOutTime, y, p, m%Decimate, ErrStat, ErrMsg )         
       END IF          
       
          ! Close files here:  
@@ -1180,41 +1557,39 @@ SUBROUTINE HydroDyn_End( u, p, x, xd, z, OtherState, y, ErrStat, ErrMsg )
       CALL HydroDyn_DestroyConstrState( z,           ErrStat, ErrMsg )
       CALL HydroDyn_DestroyOtherState(  OtherState,  ErrStat, ErrMsg )
          
+         ! Destroy misc variables:
+      
+      CALL HydroDyn_DestroyMisc( m, ErrStat, ErrMsg )
 
          ! Destroy the output data:
          
       CALL HydroDyn_DestroyOutput( y, ErrStat, ErrMsg )
-
-!bjj: this is done in HydroDyn_DestroyOtherState now:
-         ! Destroy mesh mapping data
-      CALL MeshMapDestroy( OtherState%HD_MeshMap%HD_P_2_WRP_P, ErrStat, ErrMsg ); IF ( ErrStat /= ErrID_None ) CALL WrScr(TRIM(ErrMsg))
-      CALL MeshMapDestroy( OtherState%HD_MeshMap%M_P_2_WRP_P,  ErrStat, ErrMsg ); IF ( ErrStat /= ErrID_None ) CALL WrScr(TRIM(ErrMsg))
-      CALL MeshMapDestroy( OtherState%HD_MeshMap%M_L_2_WRP_P,  ErrStat, ErrMsg ); IF ( ErrStat /= ErrID_None ) CALL WrScr(TRIM(ErrMsg))
       
 
 END SUBROUTINE HydroDyn_End
 
 
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE HydroDyn_UpdateStates( t, n, Inputs, InputTimes, p, x, xd, z, OtherState, ErrStat, ErrMsg )
-! Loose coupling routine for solving constraint states, integrating continuous states, and updating discrete states.
-! Continuous, constraint, and discrete states are updated to values at t + Interval.
-!..................................................................................................................................
+!> Loose coupling routine for solving constraint states, integrating continuous states, and updating discrete states.
+!! Continuous, constraint, and discrete states are updated to values at t + Interval.
+SUBROUTINE HydroDyn_UpdateStates( t, n, Inputs, InputTimes, p, x, xd, z, OtherState, m, ErrStat, ErrMsg )
 
-      REAL(DbKi),                         INTENT(IN   )  :: t               ! Current simulation time in seconds
-      INTEGER(IntKi),                     INTENT(IN   )  :: n               ! Current step of the simulation: t = n*Interval
-      TYPE(HydroDyn_InputType),           INTENT(INOUT ) :: Inputs(:)       ! Inputs at InputTimes
-      REAL(DbKi),                         INTENT(IN   )  :: InputTimes(:)   ! Times in seconds associated with Inputs
-      TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p               ! Parameters
-      TYPE(HydroDyn_ContinuousStateType), INTENT(INOUT)  :: x               ! Input: Continuous states at t;
-                                                                            !   Output: Continuous states at t + Interval
-      TYPE(HydroDyn_DiscreteStateType),   INTENT(INOUT)  :: xd              ! Input: Discrete states at t;
-                                                                            !   Output: Discrete states at t + Interval
-      TYPE(HydroDyn_ConstraintStateType), INTENT(INOUT)  :: z               ! Input: Constraint states at t;
-                                                                            !   Output: Constraint states at t + Interval
-      TYPE(HydroDyn_OtherStateType),      INTENT(INOUT)  :: OtherState      ! Other/optimization states
-      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat         ! Error status of the operation
-      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg          ! Error message if ErrStat /= ErrID_None
+      REAL(DbKi),                         INTENT(IN   )  :: t               !< Current simulation time in seconds
+      INTEGER(IntKi),                     INTENT(IN   )  :: n               !< Current step of the simulation: t = n*Interval
+      TYPE(HydroDyn_InputType),           INTENT(INOUT ) :: Inputs(:)       !< Inputs at InputTimes
+      REAL(DbKi),                         INTENT(IN   )  :: InputTimes(:)   !< Times in seconds associated with Inputs
+      TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p               !< Parameters
+      TYPE(HydroDyn_ContinuousStateType), INTENT(INOUT)  :: x               !< Input: Continuous states at t;
+                                                                            !!   Output: Continuous states at t + Interval
+      TYPE(HydroDyn_DiscreteStateType),   INTENT(INOUT)  :: xd              !< Input: Discrete states at t;
+                                                                            !!   Output: Discrete states at t + Interval
+      TYPE(HydroDyn_ConstraintStateType), INTENT(INOUT)  :: z               !< Input: Constraint states at t;
+                                                                            !!   Output: Constraint states at t + Interval
+      TYPE(HydroDyn_OtherStateType),      INTENT(INOUT)  :: OtherState      !< Other states: Other states at t;
+                                                                            !!   Output: Other states at t + Interval
+      TYPE(HydroDyn_MiscVarType),         INTENT(INOUT)  :: m               !< Initial misc/optimization variables           
+      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat         !< Error status of the operation
+      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg          !< Error message if ErrStat /= ErrID_None
 
          ! Local variables
       INTEGER                                            :: I               ! Generic loop counter
@@ -1225,14 +1600,12 @@ SUBROUTINE HydroDyn_UpdateStates( t, n, Inputs, InputTimes, p, x, xd, z, OtherSt
       INTEGER(IntKi)                                     :: ErrStat2        ! Error status of the operation (secondary error)
       CHARACTER(ErrMsgLen)                               :: ErrMsg2         ! Error message if ErrStat2 /= ErrID_None
       INTEGER                                            :: nTime           ! number of inputs 
-!BJJ: I'd probably make this (below) an OtherState variable so you don't have to allocate/deallocate each time 
+
       TYPE(WAMIT_InputType), ALLOCATABLE                 :: Inputs_WAMIT(:)  
-      
+      CHARACTER(*), PARAMETER                            :: RoutineName = 'HydroDyn_UpdateStates'
       
           ! Create dummy variables required by framework but which are not used by the module
-      
-      TYPE(WAMIT_ConstraintStateType)    :: WAMIT_z            ! constraint states
-      
+            
 #ifdef USE_FIT      
       TYPE(FIT_InputType), ALLOCATABLE                 :: Inputs_FIT(:) 
       TYPE(FIT_ConstraintStateType)      :: FIT_z              ! constraint states
@@ -1264,7 +1637,7 @@ SUBROUTINE HydroDyn_UpdateStates( t, n, Inputs, InputTimes, p, x, xd, z, OtherSt
    IF ( p%PotMod == 1 ) THEN
       ALLOCATE( Inputs_WAMIT(nTime), STAT = ErrStat2 )
       IF (ErrStat2 /=0) THEN
-         CALL SetErrStat( ErrID_Fatal, 'Failed to allocate array Inputs_WAMIT.', ErrStat, ErrMsg, 'HydroDyn_UpdateStates' )
+         CALL SetErrStat( ErrID_Fatal, 'Failed to allocate array Inputs_WAMIT.', ErrStat, ErrMsg, RoutineName )
          RETURN
       END IF
 
@@ -1272,30 +1645,26 @@ SUBROUTINE HydroDyn_UpdateStates( t, n, Inputs, InputTimes, p, x, xd, z, OtherSt
          ! Loop over number of inputs and copy them into an array of WAMIT inputs
       
       DO I=1,nTime
+                  
+            ! Copy the inputs from the HD mesh into the WAMIT mesh         
+         CALL MeshCopy( Inputs(I)%Mesh, Inputs_WAMIT(I)%Mesh, MESH_NEWCOPY, ErrStat2, ErrMsg2 )   
+         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )                  
          
-         ! TODO: The following didn't work and produced a bug.  I don't know why, though GJH 9/23/15
-            ! Copy the inputs from the HD mesh into the WAMIT mesh
-         !CALL MeshCopy( Inputs_WAMIT(I)%Mesh, Inputs(I)%WAMIT%Mesh, MESH_NEWCOPY, ErrStat2, ErrMsg2 )   
-         !CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_UpdateStates' )                  
-         !   IF ( ErrStat >= AbortErrLev ) RETURN
-               
-         ! LEGACY CODE
-         CALL WAMIT_CopyInput( Inputs(I)%WAMIT, Inputs_WAMIT(I), MESH_NEWCOPY, ErrStat2, ErrMsg2 ) 
-         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_UpdateStates' )         
       END DO
       
          
-         
-         ! Update the WAMIT module states
+      IF (ErrStat < AbortErrLev) THEN    ! if there was an error copying the input meshes, we'll skip this step and then cleanup the temporary input meshes     
+            ! Update the WAMIT module states
       
-      CALL WAMIT_UpdateStates( t, n, Inputs_WAMIT, InputTimes, p%WAMIT, x%WAMIT, xd%WAMIT, WAMIT_z, OtherState%WAMIT, ErrStat2, ErrMsg2 )
-         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_UpdateStates' )         
+         CALL WAMIT_UpdateStates( t, n, Inputs_WAMIT, InputTimes, p%WAMIT, x%WAMIT, xd%WAMIT, z%WAMIT, OtherState%WAMIT, m%WAMIT, ErrStat2, ErrMsg2 )
+            CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )         
      
-
+      END IF
+      
          ! deallocate temporary inputs
       DO I=1,nTime
          CALL WAMIT_DestroyInput( Inputs_WAMIT(I), ErrStat2, ErrMsg2 )     
-         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_UpdateStates' )         
+         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )         
       END DO
       
       DEALLOCATE(Inputs_WAMIT)
@@ -1305,7 +1674,7 @@ SUBROUTINE HydroDyn_UpdateStates( t, n, Inputs, InputTimes, p, x, xd, z, OtherSt
       
       ALLOCATE( Inputs_FIT(nTime), STAT = ErrStat2 )
       IF (ErrStat2 /=0) THEN
-         CALL SetErrStat( ErrID_Fatal, 'Failed to allocate array Inputs_FIT.', ErrStat, ErrMsg, 'HydroDyn_UpdateStates' )
+         CALL SetErrStat( ErrID_Fatal, 'Failed to allocate array Inputs_FIT.', ErrStat, ErrMsg, RoutineName )
          RETURN
       END IF
 
@@ -1331,13 +1700,13 @@ SUBROUTINE HydroDyn_UpdateStates( t, n, Inputs, InputTimes, p, x, xd, z, OtherSt
          ! Update the FIT module states
      
       CALL FIT_UpdateStates( t, n, Inputs_FIT, InputTimes, p%FIT, FIT_x, xd%FIT, FIT_z, OtherState%FIT, ErrStat2, ErrMsg2 )
-         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_UpdateStates' )         
+         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )         
      
 
          ! deallocate temporary inputs
       DO I=1,nTime
          CALL FIT_DestroyInput( Inputs_FIT(I), ErrStat2, ErrMsg2 )     
-         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_UpdateStates' )         
+         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )         
       END DO
       
       DEALLOCATE(Inputs_FIT) 
@@ -1350,21 +1719,21 @@ END SUBROUTINE HydroDyn_UpdateStates
 
 
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, ErrMsg )   
-! Routine for computing outputs, used in both loose and tight coupling.
-!..................................................................................................................................
+!> Routine for computing outputs, used in both loose and tight coupling.
+SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, m, ErrStat, ErrMsg )   
    
-      REAL(DbKi),                         INTENT(IN   )  :: Time        ! Current simulation time in seconds
-      TYPE(HydroDyn_InputType),           INTENT(INOUT)  :: u           ! Inputs at Time
-      TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p           ! Parameters
-      TYPE(HydroDyn_ContinuousStateType), INTENT(IN   )  :: x           ! Continuous states at Time
-      TYPE(HydroDyn_DiscreteStateType),   INTENT(IN   )  :: xd          ! Discrete states at Time
-      TYPE(HydroDyn_ConstraintStateType), INTENT(IN   )  :: z           ! Constraint states at Time
-      TYPE(HydroDyn_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states
-      TYPE(HydroDyn_OutputType),          INTENT(INOUT)  :: y           ! Outputs computed at Time (Input only so that mesh con-
-                                                                        !   nectivity information does not have to be recalculated)
-      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat     ! Error status of the operation
-      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
+      REAL(DbKi),                         INTENT(IN   )  :: Time        !< Current simulation time in seconds
+      TYPE(HydroDyn_InputType),           INTENT(INOUT)  :: u           !< Inputs at Time (note that this is intent out because we're copying the u%mesh into m%u_wamit%mesh)
+      TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p           !< Parameters
+      TYPE(HydroDyn_ContinuousStateType), INTENT(IN   )  :: x           !< Continuous states at Time
+      TYPE(HydroDyn_DiscreteStateType),   INTENT(IN   )  :: xd          !< Discrete states at Time
+      TYPE(HydroDyn_ConstraintStateType), INTENT(IN   )  :: z           !< Constraint states at Time
+      TYPE(HydroDyn_OtherStateType),      INTENT(IN   )  :: OtherState  !< Other states at Time
+      TYPE(HydroDyn_OutputType),          INTENT(INOUT)  :: y           !< Outputs computed at Time (Input only so that mesh con-
+                                                                        !!   nectivity information does not have to be recalculated)
+      TYPE(HydroDyn_MiscVarType),         INTENT(INOUT)  :: m           !< Initial misc/optimization variables           
+      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat     !! Error status of the operation
+      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg      !! Error message if ErrStat /= ErrID_None
 
       INTEGER                                            :: I, J        ! Generic counters
       
@@ -1382,16 +1751,6 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
       REAL(ReKi)                           :: q(6), qdot(6), qdotsq(6), qdotdot(6)
       REAL(ReKi)                           :: rotdisp(3)                              ! small angle rotational displacements
       REAL(ReKi)                           :: AllOuts(MaxHDOutputs)  
-      
-         ! Create dummy variables required by framework but which are not used by the module
-         
-      TYPE(WAMIT_ConstraintStateType)     :: WAMIT_z        ! Initial guess of the constraint states
-      TYPE(WAMIT2_ConstraintStateType)    :: WAMIT2_z       ! Initial guess of the constraint states
-      TYPE(Waves2_ConstraintStateType)    :: Waves2_z       ! Initial guess of the constraint states
-     
-      TYPE(Morison_ContinuousStateType)   :: Morison_x      ! Initial continuous states
-      TYPE(Morison_DiscreteStateType)     :: Morison_xd     ! Initial discrete states
-      TYPE(Morison_ConstraintStateType)   :: Morison_z      ! Initial guess of the constraint states
       
       
          ! Initialize ErrStat
@@ -1413,8 +1772,8 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
       IF (p%Waves2%WvDiffQTFF .OR. p%Waves2%WvSumQTFF ) THEN
 
             ! Waves2_CalcOutput is called only so that the wave elevations can be output (if requested).
-         CALL Waves2_CalcOutput( Time, u%Waves2, p%Waves2, x%Waves2, xd%Waves2,  &
-                                Waves2_z, OtherState%Waves2, y%Waves2, ErrStat2, ErrMsg2 )
+         CALL Waves2_CalcOutput( Time, m%u_Waves2, p%Waves2, x%Waves2, xd%Waves2,  &
+                                z%Waves2, OtherState%Waves2, y%Waves2, m%Waves2, ErrStat2, ErrMsg2 )
 
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
       END IF
@@ -1433,23 +1792,23 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
       
          ! Compute the load contirbution from user-supplied added stiffness and damping
          
-      OtherState%F_PtfmAdd = p%AddF0 - matmul(p%AddCLin, q) - matmul(p%AddBLin, qdot) - matmul(p%AddBQuad, qdotsq)
+      m%F_PtfmAdd = p%AddF0 - matmul(p%AddCLin, q) - matmul(p%AddBLin, qdot) - matmul(p%AddBQuad, qdotsq)
       
          ! Attach to the output point mesh
-      y%Mesh%Force (:,1) = OtherState%F_PtfmAdd(1:3)
-      y%Mesh%Moment(:,1) = OtherState%F_PtfmAdd(4:6)
+      y%Mesh%Force (:,1) = m%F_PtfmAdd(1:3)
+      y%Mesh%Moment(:,1) = m%F_PtfmAdd(4:6)
       
       IF ( p%PotMod == 1 ) THEN
-         IF ( u%WAMIT%Mesh%Committed ) THEN  ! Make sure we are using WAMIT / there is a valid mesh
+         IF ( m%u_WAMIT%Mesh%Committed ) THEN  ! Make sure we are using WAMIT / there is a valid mesh
          
                ! Copy the inputs from the HD mesh into the WAMIT mesh
-            CALL MeshCopy( u%Mesh, u%WAMIT%Mesh, MESH_UPDATECOPY, ErrStat2, ErrMsg2 )   
+            CALL MeshCopy( u%Mesh, m%u_WAMIT%Mesh, MESH_UPDATECOPY, ErrStat2, ErrMsg2 )   
             CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
                IF ( ErrStat >= AbortErrLev ) RETURN
          
          
-            CALL WAMIT_CalcOutput( Time, u%WAMIT, p%WAMIT, x%WAMIT, xd%WAMIT,  &
-                                   WAMIT_z, OtherState%WAMIT, y%WAMIT, ErrStat2, ErrMsg2 )
+            CALL WAMIT_CalcOutput( Time, m%u_WAMIT, p%WAMIT, x%WAMIT, xd%WAMIT,  &
+                                   z%WAMIT, OtherState%WAMIT, y%WAMIT, m%WAMIT, ErrStat2, ErrMsg2 )
             CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
          
                ! Add WAMIT forces to the HydroDyn output mesh
@@ -1458,7 +1817,7 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
          
 
                ! Copy the F_Waves1 information to the HydroDyn level so we can combine it with the 2nd order
-            OtherState%F_Waves   = OtherState%WAMIT%F_Waves1
+            m%F_Waves   = m%WAMIT%F_Waves1
 
          
          END IF
@@ -1480,45 +1839,38 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
       END IF
       
 
-      IF ( u%WAMIT2%Mesh%Committed ) THEN  ! Make sure we are using WAMIT2 / there is a valid mesh
+      IF ( m%u_WAMIT2%Mesh%Committed ) THEN  ! Make sure we are using WAMIT2 / there is a valid mesh
 
             ! Copy the inputs from the HD mesh into the WAMIT2 mesh
-         CALL MeshCopy( u%Mesh, u%WAMIT2%Mesh, MESH_UPDATECOPY, ErrStat2, ErrMsg2 )
+         CALL MeshCopy( u%Mesh, m%u_WAMIT2%Mesh, MESH_UPDATECOPY, ErrStat2, ErrMsg2 )
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
             IF ( ErrStat >= AbortErrLev ) RETURN
 
 
-         CALL WAMIT2_CalcOutput( Time, u%WAMIT2, p%WAMIT2, x%WAMIT2, xd%WAMIT2,  &
-                                WAMIT2_z, OtherState%WAMIT2, y%WAMIT2, ErrStat2, ErrMsg2 )
+         CALL WAMIT2_CalcOutput( Time, m%u_WAMIT2, p%WAMIT2, x%WAMIT2, xd%WAMIT2,  &
+                                z%WAMIT2, OtherState%WAMIT2, y%WAMIT2, m%WAMIT2, ErrStat2, ErrMsg2 )
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
 
             ! Add WAMIT2 forces to the HydroDyn output mesh
          y%Mesh%Force (:,1) = y%Mesh%Force (:,1) + y%WAMIT2%Mesh%Force (:,1)
          y%Mesh%Moment(:,1) = y%Mesh%Moment(:,1) + y%WAMIT2%Mesh%Moment(:,1)
 
-            ! Add the second order WAMIT forces to the first order WAMIT forces for the total
-         OtherState%F_Waves   =  OtherState%F_Waves   +  OtherState%WAMIT2%F_Waves2
+            ! Add the second order WAMIT forces to the first order WAMIT forces for the total (this is just to make the mesh match this misc var)
+         m%F_Waves   =  m%F_Waves   +  m%WAMIT2%F_Waves2
 
       END IF
 
 
 
       IF ( u%Morison%LumpedMesh%Committed ) THEN  ! Make sure we are using Morison / there is a valid mesh
-         CALL Morison_CalcOutput( Time, u%Morison, p%Morison, Morison_x, Morison_xd,  &
-                                Morison_z, OtherState%Morison, y%Morison, ErrStat2, ErrMsg2 )
+         CALL Morison_CalcOutput( Time, u%Morison, p%Morison, x%Morison, xd%Morison,  &
+                                z%Morison, OtherState%Morison, y%Morison, m%Morison, ErrStat2, ErrMsg2 )
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
       END IF
       
       
-      IF ( u%Morison%LumpedMesh%Committed ) THEN  ! Make sure we are using Morison / there is a valid mesh
-         CALL Morison_CalcOutput( Time, u%Morison, p%Morison, Morison_x, Morison_xd,  &
-                                Morison_z, OtherState%Morison, y%Morison, ErrStat2, ErrMsg2 )
-         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
-      END IF
-
-
          ! Integrate all the mesh loads onto the WAMIT reference Point (WRP) at (0,0,0)
-      OtherState%F_Hydro = CalcLoadsAtWRP( y, u, OtherState%y_mapped, OtherState%AllHdroOrigin_position, OtherState%MrsnLumpedMesh_position, OtherState%MrsnDistribMesh_position, OtherState%HD_MeshMap, ErrStat2, ErrMsg2 )
+      m%F_Hydro = CalcLoadsAtWRP( y, u, m%y_mapped, m%AllHdroOrigin_position, m%MrsnLumpedMesh_position, m%MrsnDistribMesh_position, m%HD_MeshMap, ErrStat2, ErrMsg2 )
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
       
       
@@ -1526,9 +1878,9 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
          
       DO I=1,p%NWaveElev   
          WaveElev1(I)   = InterpWrappedStpReal ( REAL(Time, SiKi), p%WaveTime(:), p%WaveElev1(:,I),          &
-                                    OtherState%LastIndWave, p%NStepWave + 1       )                      
+                                    m%LastIndWave, p%NStepWave + 1       )                      
          WaveElev(I)    = InterpWrappedStpReal ( REAL(Time, SiKi), p%WaveTime(:), p%WaveElev(:,I), &
-                                    OtherState%LastIndWave, p%NStepWave + 1       )
+                                    m%LastIndWave, p%NStepWave + 1       )
 
       END DO
       
@@ -1538,14 +1890,14 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
          ! Write the HydroDyn-level output file data if the user requested module-level output
          ! and the current time has advanced since the last stored time step.
          
-      IF ( (p%OutSwtch == 1 .OR. p%OutSwtch == 3) .AND. ( Time > OtherState%LastOutTime ) ) THEN               
-         CALL HDOut_WriteOutputs( OtherState%LastOutTime, y, p, OtherState%Decimate, ErrStat2, ErrMsg2 )         
+      IF ( (p%OutSwtch == 1 .OR. p%OutSwtch == 3) .AND. ( Time > m%LastOutTime ) ) THEN               
+         CALL HDOut_WriteOutputs( m%LastOutTime, y, p, m%Decimate, ErrStat2, ErrMsg2 )         
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
       END IF
       
       
          ! Map calculated results into the AllOuts Array
-      CALL HDOut_MapOutputs( Time, y, p%NWaveElev, WaveElev, WaveElev1, OtherState%F_PtfmAdd, OtherState%F_Waves, OtherState%F_Hydro, q, qdot, qdotdot, AllOuts, ErrStat2, ErrMsg2 )
+      CALL HDOut_MapOutputs( Time, y, p%NWaveElev, WaveElev, WaveElev1, m%F_PtfmAdd, m%F_Waves, m%F_Hydro, q, qdot, qdotdot, AllOuts, ErrStat2, ErrMsg2 )
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, 'HydroDyn_CalcOutput' )                  
       
       DO I = 1,p%NumOuts
@@ -1558,13 +1910,6 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
          
          J = p%NumOuts + 1        
          
-         IF (ALLOCATED( p%Waves2%OutParam ) .AND. p%Waves2%NumOuts > 0) THEN
-            DO I=1, p%Waves2%NumOuts
-               y%WriteOutput(J) = y%Waves2%WriteOutput(I)
-               J = J + 1
-            END DO
-         END IF
-
          IF (ALLOCATED( p%WAMIT%OutParam ) .AND. p%WAMIT%NumOuts > 0) THEN
             DO I=1, p%WAMIT%NumOuts
                y%WriteOutput(J) = y%WAMIT%WriteOutput(I)
@@ -1572,6 +1917,13 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
             END DO
          END IF
          
+         IF (ALLOCATED( p%Waves2%OutParam ) .AND. p%Waves2%NumOuts > 0) THEN
+            DO I=1, p%Waves2%NumOuts
+               y%WriteOutput(J) = y%Waves2%WriteOutput(I)
+               J = J + 1
+            END DO
+         END IF
+
          IF (ALLOCATED( p%WAMIT2%OutParam ) .AND. p%WAMIT2%NumOuts > 0) THEN
             DO I=1, p%WAMIT2%NumOuts
                y%WriteOutput(J) = y%WAMIT2%WriteOutput(I)
@@ -1588,27 +1940,28 @@ SUBROUTINE HydroDyn_CalcOutput( Time, u, p, x, xd, z, OtherState, y, ErrStat, Er
          
       END IF
       
-      OtherState%LastOutTime   = Time
+      m%LastOutTime   = Time
       
 END SUBROUTINE HydroDyn_CalcOutput
 
 
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE HydroDyn_CalcContStateDeriv( Time, u, p, x, xd, z, OtherState, dxdt, ErrStat, ErrMsg )  
-! Tight coupling routine for computing derivatives of continuous states
-!..................................................................................................................................
+!> Tight coupling routine for computing derivatives of continuous states
+SUBROUTINE HydroDyn_CalcContStateDeriv( Time, u, p, x, xd, z, OtherState, m, dxdt, ErrStat, ErrMsg )  
    
-      REAL(DbKi),                         INTENT(IN   )  :: Time        ! Current simulation time in seconds
-      TYPE(HydroDyn_InputType),           INTENT(IN   )  :: u           ! Inputs at Time                    
-      TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p           ! Parameters                             
-      TYPE(HydroDyn_ContinuousStateType), INTENT(IN   )  :: x           ! Continuous states at Time
-      TYPE(HydroDyn_DiscreteStateType),   INTENT(IN   )  :: xd          ! Discrete states at Time
-      TYPE(HydroDyn_ConstraintStateType), INTENT(IN   )  :: z           ! Constraint states at Time
-      TYPE(HydroDyn_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states                    
-      TYPE(HydroDyn_ContinuousStateType), INTENT(  OUT)  :: dxdt        ! Continuous state derivatives at Time
-      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat     ! Error status of the operation     
-      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
+      REAL(DbKi),                         INTENT(IN   )  :: Time        !< Current simulation time in seconds
+      TYPE(HydroDyn_InputType),           INTENT(INOUT)  :: u           !< Inputs at Time (intent OUT only because we're copying the input mesh)
+      TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p           !< Parameters                             
+      TYPE(HydroDyn_ContinuousStateType), INTENT(IN   )  :: x           !< Continuous states at Time
+      TYPE(HydroDyn_DiscreteStateType),   INTENT(IN   )  :: xd          !< Discrete states at Time
+      TYPE(HydroDyn_ConstraintStateType), INTENT(IN   )  :: z           !< Constraint states at Time
+      TYPE(HydroDyn_OtherStateType),      INTENT(IN   )  :: OtherState  !< Other states                    
+      TYPE(HydroDyn_MiscVarType),         INTENT(INOUT)  :: m           !< Initial misc/optimization variables           
+      TYPE(HydroDyn_ContinuousStateType), INTENT(  OUT)  :: dxdt        !< Continuous state derivatives at Time
+      INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat     !< Error status of the operation     
+      CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg      !< Error message if ErrStat /= ErrID_None
 
+      CHARACTER(*), PARAMETER    :: RoutineName = 'HydroDyn_CalcContStateDeriv'
                
          ! Initialize ErrStat
          
@@ -1618,86 +1971,100 @@ SUBROUTINE HydroDyn_CalcContStateDeriv( Time, u, p, x, xd, z, OtherState, dxdt, 
       
          ! Compute the first time derivatives of the continuous states here:
       
-    !  dxdt%DummyContState = 0
+   IF ( m%u_WAMIT%Mesh%Committed ) THEN  ! Make sure we are using WAMIT / there is a valid mesh
          
+         ! Copy the inputs from the HD mesh into the WAMIT mesh
+      CALL MeshCopy( u%Mesh, m%u_WAMIT%Mesh, MESH_UPDATECOPY, ErrStat, ErrMsg )   
+         IF ( ErrStat >= AbortErrLev ) RETURN
+      
+      CALL WAMIT_CalcContStateDeriv( Time, m%u_WAMIT, p%WAMIT, x%WAMIT, xd%WAMIT, z%WAMIT, OtherState%WAMIT, m%WAMIT, dxdt%WAMIT, ErrStat, ErrMsg ) 
 
+   END IF
+   
 END SUBROUTINE HydroDyn_CalcContStateDeriv
 
 
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE HydroDyn_UpdateDiscState( Time, n, u, p, x, xd, z, OtherState, ErrStat, ErrMsg )   
-! Tight coupling routine for updating discrete states
-!..................................................................................................................................
-   
-      REAL(DbKi),                        INTENT(IN   )  :: Time        ! Current simulation time in seconds   
-      INTEGER(IntKi),                     INTENT(IN   ) :: n               ! Current step of the simulation: t = n*Interval
-      TYPE(HydroDyn_InputType),           INTENT(IN   )  :: u           ! Inputs at Time                       
-      TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p           ! Parameters                                 
-      TYPE(HydroDyn_ContinuousStateType), INTENT(IN   )  :: x           ! Continuous states at Time
-      TYPE(HydroDyn_DiscreteStateType),   INTENT(INOUT)  :: xd          ! Input: Discrete states at Time; 
-                                                                       !   Output: Discrete states at Time + Interval
-      TYPE(HydroDyn_ConstraintStateType), INTENT(IN   )  :: z           ! Constraint states at Time
-      TYPE(HydroDyn_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states           
-      INTEGER(IntKi),                    INTENT(  OUT)  :: ErrStat     ! Error status of the operation
-      CHARACTER(*),                      INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
-
-      
-         ! Create dummy variables required by framework but which are not used by the module
-         ! TODO: considering adding these to HydroDyn_ContinuousStateType, HydroDyn_ConstraintStateType, HydroDyn_OtherStateType
-      TYPE(WAMIT_ContinuousStateType) :: WAMIT_x           ! Initial continuous states
-      TYPE(WAMIT_ConstraintStateType) :: WAMIT_z           ! Initial guess of the constraint states
-      TYPE(WAMIT_OtherStateType)      :: WAMITOtherState  ! Initial other/optimization states     
-      
-      
-         ! Initialize ErrStat
-         
-      ErrStat = ErrID_None         
-      ErrMsg  = ""               
-      
-      
-         ! Update discrete states 
-         
-      IF ( u%WAMIT%Mesh%Committed ) THEN    
-         CALL WAMIT_UpdateDiscState( Time, n, u%WAMIT, p%WAMIT, WAMIT_x, xd%WAMIT, WAMIT_z, WAMITOtherState, ErrStat, ErrMsg )          
-         IF ( ErrStat > ErrID_Warn )  RETURN
-      END IF
-      
-
-END SUBROUTINE HydroDyn_UpdateDiscState
+! Tight coupling routine for updating discrete states. Note that the WAMIT_UpdateDiscState violates the framework by having OtherStates
+! be intent in/out. If/when this is fixed we can uncomment this routine.
+!SUBROUTINE HydroDyn_UpdateDiscState( Time, n, u, p, x, xd, z, OtherState, m, ErrStat, ErrMsg )   
+!   
+!   REAL(DbKi),                         INTENT(IN   )  :: Time        !< Current simulation time in seconds   
+!   INTEGER(IntKi),                     INTENT(IN   )  :: n           !< Current step of the simulation: t = n*Interval
+!   TYPE(HydroDyn_InputType),           INTENT(IN   )  :: u           !< Inputs at Time                       
+!   TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p           !< Parameters                                 
+!   TYPE(HydroDyn_ContinuousStateType), INTENT(IN   )  :: x           !< Continuous states at Time
+!   TYPE(HydroDyn_DiscreteStateType),   INTENT(INOUT)  :: xd          !< Input: Discrete states at Time; 
+!                                                                     !!   Output: Discrete states at Time + Interval
+!   TYPE(HydroDyn_ConstraintStateType), INTENT(IN   )  :: z           !< Constraint states at Time
+!   TYPE(HydroDyn_OtherStateType),      INTENT(IN   )  :: OtherState  !< Other/optimization states           
+!   TYPE(HydroDyn_MiscVarType),         INTENT(INOUT)  :: m           !< Initial misc/optimization variables           
+!   INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat     !< Error status of the operation
+!   CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg      !< Error message if ErrStat /= ErrID_None
+!         
+!   
+!      ! Initialize ErrStat
+!      
+!   ErrStat = ErrID_None         
+!   ErrMsg  = ""               
+!      
+!      
+!         ! Update discrete states 
+!         
+!   IF ( m%u_WAMIT%Mesh%Committed ) THEN  ! Make sure we are using WAMIT / there is a valid mesh
+!         
+!         ! Copy the inputs from the HD mesh into the WAMIT mesh
+!      CALL MeshCopy( u%Mesh, m%u_WAMIT%Mesh, MESH_UPDATECOPY, ErrStat, ErrMsg )   
+!         IF ( ErrStat >= AbortErrLev ) RETURN
+!      
+!     CALL WAMIT_UpdateDiscState( Time, n, m%u_WAMIT, p%WAMIT, x%WAMIT, xd%WAMIT, z%WAMIT, OtherState%WAMIT, m%WAMIT, ErrStat, ErrMsg )          
+!         IF ( ErrStat >= AbortErrLev ) RETURN
+!  END IF
+!
+!END SUBROUTINE HydroDyn_UpdateDiscState
 
 
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE HydroDyn_CalcConstrStateResidual( Time, u, p, x, xd, z, OtherState, z_residual, ErrStat, ErrMsg )   
-! Tight coupling routine for solving for the residual of the constraint state equations
-!..................................................................................................................................
+!> Tight coupling routine for solving for the residual of the constraint state equations
+SUBROUTINE HydroDyn_CalcConstrStateResidual( Time, u, p, x, xd, z, OtherState, m, z_residual, ErrStat, ErrMsg )   
    
-      REAL(DbKi),                         INTENT(IN   )  :: Time        ! Current simulation time in seconds   
-      TYPE(HydroDyn_InputType),           INTENT(IN   )  :: u           ! Inputs at Time                       
-      TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p           ! Parameters                           
-      TYPE(HydroDyn_ContinuousStateType), INTENT(IN   )  :: x           ! Continuous states at Time
-      TYPE(HydroDyn_DiscreteStateType),   INTENT(IN   )  :: xd          ! Discrete states at Time
-      TYPE(HydroDyn_ConstraintStateType), INTENT(IN   )  :: z           ! Constraint states at Time (possibly a guess)
-      TYPE(HydroDyn_OtherStateType),      INTENT(INOUT)  :: OtherState  ! Other/optimization states                    
-      TYPE(HydroDyn_ConstraintStateType), INTENT(  OUT)  :: z_residual  ! Residual of the constraint state equations using  
-                                                                       !     the input values described above      
-      INTEGER(IntKi),                    INTENT(  OUT)  :: ErrStat     ! Error status of the operation
-      CHARACTER(*),                      INTENT(  OUT)  :: ErrMsg      ! Error message if ErrStat /= ErrID_None
+   REAL(DbKi),                         INTENT(IN   )  :: Time        !< Current simulation time in seconds   
+   TYPE(HydroDyn_InputType),           INTENT(INOUT)  :: u           !< Inputs at Time (intent OUT only because we're copying the input mesh)              
+   TYPE(HydroDyn_ParameterType),       INTENT(IN   )  :: p           !< Parameters                           
+   TYPE(HydroDyn_ContinuousStateType), INTENT(IN   )  :: x           !< Continuous states at Time
+   TYPE(HydroDyn_DiscreteStateType),   INTENT(IN   )  :: xd          !< Discrete states at Time
+   TYPE(HydroDyn_ConstraintStateType), INTENT(IN   )  :: z           !< Constraint states at Time (possibly a guess)
+   TYPE(HydroDyn_OtherStateType),      INTENT(IN   )  :: OtherState  !< Other/optimization states                    
+   TYPE(HydroDyn_MiscVarType),         INTENT(INOUT)  :: m           !< Initial misc/optimization variables           
+   TYPE(HydroDyn_ConstraintStateType), INTENT(  OUT)  :: z_residual  !< Residual of the constraint state equations using  
+                                                                     !!     the input values described above      
+   INTEGER(IntKi),                     INTENT(  OUT)  :: ErrStat     !< Error status of the operation
+   CHARACTER(*),                       INTENT(  OUT)  :: ErrMsg      !< Error message if ErrStat /= ErrID_None
 
                
-         ! Initialize ErrStat
+      ! Initialize ErrStat
          
-      ErrStat = ErrID_None         
-      ErrMsg  = ""               
+   ErrStat = ErrID_None         
+   ErrMsg  = ""               
       
       
          ! Solve for the constraint states here:
       
-      z_residual%DummyConstrState = 0.0_ReKi
+   IF ( m%u_WAMIT%Mesh%Committed ) THEN  ! Make sure we are using WAMIT / there is a valid mesh
+         
+         ! Copy the inputs from the HD mesh into the WAMIT mesh
+      CALL MeshCopy( u%Mesh, m%u_WAMIT%Mesh, MESH_UPDATECOPY, ErrStat, ErrMsg )   
+         IF ( ErrStat >= AbortErrLev ) RETURN
+      
+      call WAMIT_CalcConstrStateResidual( Time, m%u_WAMIT, p%WAMIT, x%WAMIT, xd%WAMIT, z%WAMIT, OtherState%WAMIT, m%WAMIT, z_residual%WAMIT, ErrStat, ErrMsg )
+
+   END IF
 
 
 END SUBROUTINE HydroDyn_CalcConstrStateResidual
 
 
+!----------------------------------------------------------------------------------------------------------------------------------
 FUNCTION CalcLoadsAtWRP( y, u, y_mapped, AllHdroOrigin_position, MrsnLumpedMesh_Postion, MrsnDistribMesh_Position, MeshMapData, ErrStat, ErrMsg )
 
    TYPE(HydroDyn_OutputType),  INTENT(INOUT)  :: y                   ! Hydrodyn outputs
@@ -1784,7 +2151,7 @@ CONTAINS
 
    END SUBROUTINE CheckError
 END FUNCTION CalcLoadsAtWRP
-!----------------------------------------------------------------------------------------------------------------------------------
    
+!----------------------------------------------------------------------------------------------------------------------------------
 END MODULE HydroDyn
 !**********************************************************************************************************************************

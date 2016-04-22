@@ -1,0 +1,1 @@
+cmakelist exists for this directory, but the VS project requires the compiled DLL's.

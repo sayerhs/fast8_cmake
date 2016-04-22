@@ -9,9 +9,9 @@
 #
 # Use ^ as a shortcut for the value in the same column from the previous line.
 ###################################################################################################################################
-# File last committed: $Date: 2015-09-17 10:07:51 -0600 (Thu, 17 Sep 2015) $
-# (File) Revision #: $Rev: 639 $
-# URL: $HeadURL: https://windsvn.nrel.gov/HydroDyn/branches/UserWaves/Source/RegistryFiles/Morison.txt $
+# File last committed: $Date: 2016-03-28 12:43:49 -0600 (Mon, 28 Mar 2016) $
+# (File) Revision #: $Rev: 668 $
+# URL: $HeadURL: https://windsvn.nrel.gov/HydroDyn/trunk/Source/RegistryFiles/Morison.txt $
 ###################################################################################################################################
 
 # ...... Include files (definitions from NWTC Library) ............................................................................
@@ -236,17 +236,18 @@ typedef   ^                            ^                             CHARACTER(1
 typedef   ^                            ^                             INTEGER                  UnOutFile                        -          -        -         ""    -
 typedef   ^                            ^                             INTEGER                  UnSum                            -          -        -         ""    -
 typedef   ^                            ^                             INTEGER                  NStepWave                        -          -        -         ""    -
-typedef   ^                            ^                             SiKi                     WaveAcc0                         {:}{:}{:}  -        -         ""    -
+typedef   ^                            ^                             SiKi                     WaveAcc                          {:}{:}{:}  -        -         ""    -
 typedef   ^                            ^                             SiKi                     WaveTime                         {:}        -        -         ""    -
-typedef   ^                            ^                             SiKi                     WaveDynP0                        {:}{:}     -        -         ""    -
-typedef   ^                            ^                             SiKi                     WaveVel0                         {:}{:}{:}  -        -         ""    -
-typedef   ^                            ^                             LOGICAL                  nodeInWater                      {:}{:}     -        -         "Logical flag indicating if the node at the given time step is in the water, and hence needs to have hydrodynamic forces calculated" -
+typedef   ^                            ^                             SiKi                     WaveDynP                         {:}{:}     -        -         ""    -
+typedef   ^                            ^                             SiKi                     WaveVel                          {:}{:}{:}  -        -         ""    -
+typedef   ^                            ^                             INTEGER                  nodeInWater                      {:}{:}     -        -         "Logical flag indicating if the node at the given time step is in the water, and hence needs to have hydrodynamic forces calculated" -
 #
 #
 # Define outputs from the initialization routine here:
 #
 typedef   ^                            InitOutputType                MeshType                 DistribMesh                      -          -        -         ""  -
 typedef   ^                            ^                             MeshType                 LumpedMesh                       -          -        -         ""    -
+typedef   ^                            ^                             SiKi                     Morison_Rad                      {:}         -        -         "radius of node (for FAST visualization)" (m)
 typedef   ^                            ^                             CHARACTER(10)            WriteOutputHdr                   {:}        -        -         ""    -
 typedef   ^                            ^                             CHARACTER(10)            WriteOutputUnt                   {:}        -        -         ""    -
 #
@@ -254,25 +255,29 @@ typedef   ^                            ^                             CHARACTER(1
 # ..... States ....................................................................................................................
 # Define continuous (differentiable) states here:
 #
-typedef   ^                            ContinuousStateType           ReKi                     DummyContState           -          -        -        "Remove this variable if you have continuous states"        -
+typedef   ^                            ContinuousStateType           SiKi                     DummyContState           -          -        -        "Remove this variable if you have continuous states"        -
 #
 #
 # Define discrete (nondifferentiable) states here:
 #
-typedef   ^                            DiscreteStateType             ReKi                     DummyDiscState           -          -         -         ""        -
+typedef   ^                            DiscreteStateType             SiKi                     DummyDiscState           -          -         -         ""        -
 #
 #
 # Define constraint states here:
 #
-typedef   ^                            ConstraintStateType           ReKi                     DummyConstrState         -         -         -         "Remove this variable if you have constraint states"        -
+typedef   ^                            ConstraintStateType           SiKi                     DummyConstrState         -         -         -         "Remove this variable if you have constraint states"        -
 #
 #
-# Define any data that are not considered actual states here:
-#   e.g. data used only for efficiency purposes (indices for searching in an array,  copies of previous calculations of output at a given time, etc.)
-#
-typedef   ^                            OtherStateType                ReKi                     D_F_D                           {:}{:}         -         -         "Distributed viscous drag loads"   -
+# Define any other states, including integer or logical states here:
+typedef   ^                            OtherStateType                IntKi                     DummyOtherState - - - "Remove this variable if you have other states" -
+
+# ..... Misc/Optimization variables.................................................................................................
+# Define any data that are used only for efficiency purposes (these variables are not associated with time):
+#   e.g. indices for searching in an array, large arrays that are local variables in any routine called multiple times, etc.
+typedef   ^                            MiscVarType                   ReKi                     D_F_D                           {:}{:}         -         -         "Distributed viscous drag loads"   -
 typedef   ^                            ^                             ReKi                     D_F_I                           {:}{:}         -         -         "Distributed inertial loads"   -
-typedef   ^                            ^                             ReKi                     D_F_DP                          {:}{:}         -         -         "Distributed dynamic pressure loads"   -
+typedef   ^                            ^                             ReKi                     D_F_B                           {:}{:}         -         -         "Distributed bounancy loads"   -
+#typedef   ^                            ^                             ReKi                     D_F_DP                          {:}{:}         -         -         "Distributed dynamic pressure loads"   -
 typedef   ^                            ^                             ReKi                     D_F_AM                          {:}{:}         -         -         "Distributed total added mass loads"   -
 typedef   ^                            ^                             ReKi                     D_F_AM_M                        {:}{:}         -         -         "Distributed member added mass loads"   -
 typedef   ^                            ^                             ReKi                     D_F_AM_MG                       {:}{:}         -         -         "Distributed marine growth added mass (weight) loads"   -
@@ -280,6 +285,7 @@ typedef   ^                            ^                             ReKi       
 typedef   ^                            ^                             ReKi                     D_FV                            {:}{:}         -         -         "Fluid velocity at line element node"   -
 typedef   ^                            ^                             ReKi                     D_FA                            {:}{:}         -         -         "Fluid acceleration at line element node"   -
 typedef   ^                            ^                             ReKi                     D_FDynP                         {:}            -         -         "Fluid dynamic pressure at line element node"   -
+typedef   ^                            ^                             ReKi                     L_F_B                           {:}{:}     -         -         ""        -
 typedef   ^                            ^                             ReKi                     L_F_D                           {:}{:}         -         -         "Lumped viscous drag loads"   -
 typedef   ^                            ^                             ReKi                     L_F_I                           {:}{:}         -         -         "Lumped intertia loads"   -
 typedef   ^                            ^                             ReKi                     L_F_DP                          {:}{:}         -         -         "Lumped dynamic pressure loads"   -
@@ -288,6 +294,7 @@ typedef   ^                            ^                             ReKi       
 typedef   ^                            ^                             ReKi                     L_FA                            {:}{:}         -         -         "Fluid acceleration at point element node"   -
 typedef   ^                            ^                             ReKi                     L_FDynP                         {:}            -         -         "Fluid dynamic pressure at point element node"   -
 typedef   ^                            ^                             INTEGER                  LastIndWave                     -              -         -         "Last time index used in the wave kinematics arrays"   -
+
 # ..... Parameters ................................................................................................................
 # Define parameters here:
 # Time step for integration of continuous states (if a fixed-step integrator is used) and update of discrete states:
@@ -311,19 +318,19 @@ typedef   ^                            ^                             INTEGER    
 typedef   ^                            ^                             INTEGER                  distribToNodeIndx               {:}        -         -         ""        -
 typedef   ^                            ^                             INTEGER                  NLumpedMarkers                  -          -         -         ""        -
 typedef   ^                            ^                             INTEGER                  lumpedToNodeIndx                {:}        -         -         ""        -
-typedef   ^                            ^                             SiKi                     WaveVel0                        {:}{:}{:}  -         -         ""        -
-typedef   ^                            ^                             SiKi                     WaveAcc0                        {:}{:}{:}  -         -         ""        -
-typedef   ^                            ^                             SiKi                     WaveDynP0                       {:}{:}     -         -         ""        -
+typedef   ^                            ^                             SiKi                     WaveVel                         {:}{:}{:}  -         -         ""        -
+typedef   ^                            ^                             SiKi                     WaveAcc                         {:}{:}{:}  -         -         ""        -
+typedef   ^                            ^                             SiKi                     WaveDynP                        {:}{:}     -         -         ""        -
 typedef   ^                            ^                             SiKi                     WaveTime                        {:}        -         -         ""        -
 typedef   ^                            ^                             INTEGER                  elementWaterState               {:}{:}     -         -         "State indicating if the element a node is attached to at the given time step is in the water [0], above the water [1], or in the seabed [2]" -
 typedef   ^                            ^                             INTEGER                  elementFillState                {:}        -         -         "State indicating if the element a node is attached to is in the filled fluid [0], above the fluid [1], or in the seabed [2]" -
-typedef   ^                            ^                             LOGICAL                  nodeInWater                     {:}{:}     -        -          "Logical flag indicating if the node at the given time step is in the water, and hence needs to have hydrodynamic forces calculated" -
+typedef   ^                            ^                             INTEGER                  nodeInWater                     {:}{:}     -        -          "Logical flag indicating if the node at the given time step is in the water, and hence needs to have hydrodynamic forces calculated" -
 typedef   ^                            ^                             ReKi                     D_F_B                           {:}{:}     -         -         "Distributed buoyancy loads"   -
 typedef   ^                            ^                             ReKi                     D_F_BF                          {:}{:}     -         -         "Distributed filled buoyancy loads"   -
 typedef   ^                            ^                             ReKi                     D_F_MG                          {:}{:}     -         -         "Distributed marine growth loads"   -
 typedef   ^                            ^                             ReKi                     D_AM_M                          {:}{:}{:}  -         -         "Distributed member added mass matrix"   -
-typedef   ^                            ^                             ReKi                     D_AM_MG                         {:}{:}{:}  -         -         "Distributed marine growth added mass matrix (weight)"   -
-typedef   ^                            ^                             ReKi                     D_AM_F                          {:}{:}{:}  -         -         "Distributed added mass matrix due to flooding/filled fluid"   -
+typedef   ^                            ^                             ReKi                     D_AM_MG                         {:}  -         -         "Distributed marine growth added mass matrix (weight)"   -
+typedef   ^                            ^                             ReKi                     D_AM_F                          {:}  -         -         "Distributed added mass matrix due to flooding/filled fluid"   -
 typedef   ^                            ^                             INTEGER                  NStepWave                       -          -         -         ""        -
 typedef   ^                            ^                             INTEGER                  NMOutputs                       -          -         -         ""        -
 typedef   ^                            ^                             Morison_MOutput          MOutLst                         {:}        -         -         ""        -

@@ -1,6 +1,6 @@
 !**********************************************************************************************************************************
 ! LICENSING
-! Copyright (C) 2015  National Renewable Energy Laboratory
+! Copyright (C) 2015-2016  National Renewable Energy Laboratory
 !
 ! Licensed under the Apache License, Version 2.0 (the "License");
 ! you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 ! See the License for the specific language governing permissions and
 ! limitations under the License.
 !**********************************************************************************************************************************
+!> This module contains the input/output parameters and routines for the BeamDyn module.
 MODULE BeamDyn_IO
 
    USE BeamDyn_Types
@@ -22,7 +23,7 @@ MODULE BeamDyn_IO
 
    IMPLICIT NONE
 
-   TYPE(ProgDesc), PARAMETER:: BeamDyn_Ver = ProgDesc('BeamDyn', 'v1.00.00','5-Oct-2015')
+   TYPE(ProgDesc), PARAMETER:: BeamDyn_Ver = ProgDesc('BeamDyn', 'v1.01.03','12-Apr-2016')
 
 
 ! ===================================================================================================
@@ -497,12 +498,12 @@ CONTAINS
 SUBROUTINE BD_ReadInput(InputFileName,InputFileData,OutFileRoot, Default_DT,ErrStat,ErrMsg)
 
    ! Passed Variables:
-   CHARACTER(*),                 INTENT(IN   )  :: InputFileName    ! Name of the input file
-   CHARACTER(*),                 INTENT(IN   )  :: OutFileRoot      ! Name of the input file
-   REAL(DbKi),                   INTENT(IN   )  :: Default_DT       ! The default DT (from glue code)
-   TYPE(BD_InputFile),           INTENT(  OUT)  :: InputFileData    ! Data stored in the module's input file
-   INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat          ! The error status code
-   CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg           ! The error message, if an error occurred
+   CHARACTER(*),                 INTENT(IN   )  :: InputFileName    !< Name of the input file
+   CHARACTER(*),                 INTENT(IN   )  :: OutFileRoot      !< Name of the input file
+   REAL(DbKi),                   INTENT(IN   )  :: Default_DT       !< The default DT (from glue code)
+   TYPE(BD_InputFile),           INTENT(  OUT)  :: InputFileData    !< Data stored in the module's input file
+   INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat          !< The error status code
+   CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg           !< The error message, if an error occurred
 
 
    ! Local variables:
@@ -533,14 +534,11 @@ SUBROUTINE BD_ReadInput(InputFileName,InputFileData,OutFileRoot, Default_DT,ErrS
 
 END SUBROUTINE BD_ReadInput
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE BD_ReadPrimaryFile(InputFile,InputFileData,&
-                              OutFileRoot,UnEc,ErrStat,ErrMsg)
-!----------------------------------------------------------------------------------------------------------------------------------
-! This routine reads in the primary BeamDyn input file and places the values it reads
-! in the InputFileData structure.
-!   It opens an echo file if requested and returns the (still-open) echo file to the
-!     calling routine.
-!------------------------------------------------------------------------------------
+!> This routine reads in the primary BeamDyn input file and places the values it reads
+!! in the InputFileData structure.
+!!   It opens an echo file if requested and returns the (still-open) echo file to the
+!!     calling routine.
+SUBROUTINE BD_ReadPrimaryFile(InputFile,InputFileData,OutFileRoot,UnEc,ErrStat,ErrMsg)
 
    ! Passed variables
    INTEGER(IntKi),               INTENT(  OUT) :: UnEc
@@ -749,7 +747,6 @@ SUBROUTINE BD_ReadPrimaryFile(InputFile,InputFileData,&
          end if
          
    InputFileData%kp_member = 0
-   InputFileData%kp_coordinate = 0.0_BDKi
    temp_int = 0
    DO i=1,InputFileData%member_total
       ! bjj: we cannot read j, InputFileData%kp_member(j) because j could be outside the valid range:
@@ -780,6 +777,7 @@ SUBROUTINE BD_ReadPrimaryFile(InputFile,InputFileData,&
    CALL ReadCom(UnIn,InputFile,'key point and initial twist units',ErrStat2,ErrMsg2,UnEc)
       CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
       
+   !InputFileData%kp_coordinate = 0.0_BDKi
    DO i=1,InputFileData%kp_total
        CALL ReadAry( UnIn, InputFile, TmpReAry, 4, 'kp_coordinate', 'Key point coordinates and initial twist', ErrStat2, ErrMsg2, UnEc )       
           CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
@@ -788,6 +786,7 @@ SUBROUTINE BD_ReadPrimaryFile(InputFile,InputFileData,&
        InputFileData%kp_coordinate(i,1) =  TmpReAry(3)
        InputFileData%kp_coordinate(i,4) = -TmpReAry(4)
    ENDDO
+   
    
    !---------------------- MESH PARAMETER -----------------------------------------
    CALL ReadCom(UnIn,InputFile,'Section Header: Mesh Parameter',ErrStat2,ErrMsg2,UnEc)
@@ -879,8 +878,8 @@ SUBROUTINE BD_ReadBladeFile(BldFile,BladeInputFileData,UnEc,ErrStat,ErrMsg)
    TYPE(BladeInputData), INTENT(  OUT):: BladeInputFileData
    CHARACTER(*),         INTENT(IN   ):: BldFile
    INTEGER(IntKi),       INTENT(IN   ):: UnEc
-   INTEGER(IntKi),       INTENT(  OUT):: ErrStat                             ! Error status
-   CHARACTER(*),         INTENT(  OUT):: ErrMsg                              ! Error message
+   INTEGER(IntKi),       INTENT(  OUT):: ErrStat                             !< Error status
+   CHARACTER(*),         INTENT(  OUT):: ErrMsg                              !< Error message
 
    ! Local variables:
    INTEGER(IntKi)             :: UnIn                                            ! Unit number for reading file
@@ -1021,22 +1020,21 @@ END SUBROUTINE BD_ReadBladeFile
 !      lines should be modified in the Matlab script and/or Excel worksheet as necessary. 
 ! This code was generated by Write_ChckOutLst.m at 29-Sep-2015 10:23:41.
 !----------------------------------------------------------------------------------------------------------------------------------
+!> This routine checks to see if any requested output channel names (stored in the OutList(:)) are invalid. It returns a 
+!! warning if any of the channels are not available outputs from the module.
+!!  It assigns the settings for OutParam(:) (i.e, the index, name, and units of the output channels, WriteOutput(:)).
+!!  the sign is set to 0 if the channel is invalid.
+!! It sets assumes the value p%NumOuts has been set before this routine has been called, and it sets the values of p%OutParam here.
 SUBROUTINE SetOutParam(OutList, p, ErrStat, ErrMsg )
-! This routine checks to see if any requested output channel names (stored in the OutList(:)) are invalid. It returns a 
-! warning if any of the channels are not available outputs from the module.
-!  It assigns the settings for OutParam(:) (i.e, the index, name, and units of the output channels, WriteOutput(:)).
-!  the sign is set to 0 if the channel is invalid.
-! It sets assumes the value p%NumOuts has been set before this routine has been called, and it sets the values of p%OutParam here.
-!..................................................................................................................................
 
    IMPLICIT                        NONE
 
       ! Passed variables
 
-   CHARACTER(ChanLen),        INTENT(IN)     :: OutList(:)                        ! The list out user-requested outputs
-   TYPE(BD_ParameterType),    INTENT(INOUT)  :: p                                 ! The module parameters
-   INTEGER(IntKi),            INTENT(OUT)    :: ErrStat                           ! The error status code
-   CHARACTER(*),              INTENT(OUT)    :: ErrMsg                            ! The error message, if an error occurred
+   CHARACTER(ChanLen),        INTENT(IN)     :: OutList(:)                        !< The list out user-requested outputs
+   TYPE(BD_ParameterType),    INTENT(INOUT)  :: p                                 !< The module parameters
+   INTEGER(IntKi),            INTENT(OUT)    :: ErrStat                           !< The error status code
+   CHARACTER(*),              INTENT(OUT)    :: ErrMsg                            !< The error message, if an error occurred
 
       ! Local variables
 
@@ -1329,26 +1327,27 @@ END SUBROUTINE SetOutParam
 !**********************************************************************************************************************************
 
 !----------------------------------------------------------------------------------------------------------------------------------
+!> This routine validates the inputs from the BeamDyn input files.
 SUBROUTINE BD_ValidateInputData( InputFileData, ErrStat, ErrMsg )
-! This routine validates the inputs from the BeamDyn input files.
-!..................................................................................................................................
       
       ! Passed variables:
 
-   TYPE(BD_InputFile),   INTENT(IN   ):: InputFileData                       ! All the data in the BeamDyn input file
-   INTEGER(IntKi),       INTENT(  OUT):: ErrStat                             ! Error status
-   CHARACTER(*),         INTENT(  OUT):: ErrMsg                              ! Error message
+   TYPE(BD_InputFile),   INTENT(IN   ):: InputFileData                       !< All the data in the BeamDyn input file
+   INTEGER(IntKi),       INTENT(  OUT):: ErrStat                             !< Error status
+   CHARACTER(*),         INTENT(  OUT):: ErrMsg                              !< Error message
 
    
       ! local variables
    INTEGER(IntKi)                     :: i,j                                 ! loop counters
    INTEGER(IntKi)                     :: nNodes                              ! number of nodes that will be on the BldMotion mesh
+   REAL(SiKi)                         :: r1, r2                              ! use single-precision real numbers for validity check
       
    CHARACTER(*), PARAMETER            :: RoutineName = 'BD_ValidateInputData'
    
    ErrStat = ErrID_None
    ErrMsg  = ""
          
+      
    IF(InputFileData%analysis_type .NE. 1 .AND. InputFileData%analysis_type .NE. 2) &
        CALL SetErrStat ( ErrID_Fatal, 'Analysis type must be 1 (static) or 2 (dynamic)', ErrStat, ErrMsg, RoutineName )
    IF(InputFileData%rhoinf .LT. 0.0_BDKi .OR. InputFileData%rhoinf .GT. 1.0_BDKi) &
@@ -1363,8 +1362,12 @@ SUBROUTINE BD_ValidateInputData( InputFileData, ErrStat, ErrMsg )
        CALL SetErrStat ( ErrID_Fatal, 'member_total must be greater than 0', ErrStat, ErrMsg, RoutineName )
    IF(InputFileData%member_total .NE. 1 .AND. InputFileData%quadrature .EQ. 2) &
        CALL SetErrStat ( ErrID_Fatal, 'Trapzoidal quadrature only allows one member (element)', ErrStat, ErrMsg, RoutineName )
-   IF(InputFileData%kp_total .LT. 3 ) &
+   IF(InputFileData%kp_total .LT. 3 ) then
        CALL SetErrStat ( ErrID_Fatal, 'kp_total must be greater than or equal to 3', ErrStat, ErrMsg, RoutineName )
+   else IF ( .not. EqualRealNos( InputFileData%kp_coordinate(1,1), 0.0_BDKi ) ) then ! added this in the "else" in case InputFileData%kp_coordinate isn't allocated with at least 1 point
+      CALL SetErrStat(ErrID_Fatal, 'kp_zr on first key point must be 0.', ErrStat, ErrMsg, RoutineName )
+   end if
+   
    DO i=1,InputFileData%member_total
        IF(InputFileData%kp_member(i) .LT. 3) THEN
           CALL SetErrStat(ErrID_Fatal,'There must be at least three key points in '//TRIM(Num2LStr(i))//'th member.', ErrStat, ErrMsg,RoutineName)
@@ -1394,6 +1397,24 @@ SUBROUTINE BD_ValidateInputData( InputFileData, ErrStat, ErrMsg )
       if ( EqualRealNos(InputFileData%pitchJ, 0.0_BDKi) ) call SetErrStat(ErrID_Fatal,'Pitch actuator inertia must not be 0.',ErrStat,ErrMsg,RoutineName)
    end if
    
+   DO j=1,InputFileData%InpBl%station_total   
+      DO i=2,3
+         IF ( .not. EqualRealNos( InputFileData%InpBl%mass0(i,i,j), InputFileData%InpBl%mass0(1,1,j) ) ) then
+            call SetErrStat( ErrID_Fatal, 'Input station '//trim(num2lstr(j))//' mass densities are not the same (i.e., first 3 diagonal elements in mass matrix must be equal).', ErrStat, ErrMsg, RoutineName )
+            exit
+         END IF
+      END DO
+
+      !............
+      ! NOTE: InputFileData%InpBl%mass0 is in internal BD coordinates; error message refers to IEC coordinates in input file
+      r1 = InputFileData%InpBl%mass0(4,4,j)
+      r2 = InputFileData%InpBl%mass0(5,5,j) + InputFileData%InpBl%mass0(6,6,j)
+      IF ( .not. EqualRealNos( r1, r2 ) ) then
+         call SetErrStat( ErrID_Fatal, 'Input station '//trim(num2lstr(j))//' i_plr must equal i_Edg + i_Flp (i.e., sum of 4th and 5th diagonal elements in mass matrix must equal the 6th diagonal element).', ErrStat, ErrMsg, RoutineName )
+      END IF
+      !............
+   END DO
+   
    
       ! .............................
       ! check outputs:
@@ -1418,17 +1439,16 @@ SUBROUTINE BD_ValidateInputData( InputFileData, ErrStat, ErrMsg )
    
 END SUBROUTINE BD_ValidateInputData
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
+!> this routine fills the AllOuts array, which is used to send data to the glue code to be written to an output file.
+SUBROUTINE Calc_WriteOutput( p, AllOuts, y, m, ErrStat, ErrMsg )
    
-   ! this routine fills the AllOuts array, which is used to send data to the glue code to be written to an output file.
 
-   TYPE(BD_ParameterType),    INTENT(IN   )  :: p                                 ! The module parameters
-   TYPE(BD_InputType),        INTENT(IN   )  :: u                                 ! inputs
-   REAL(ReKi),                INTENT(INOUT)  :: AllOuts(0:)                       ! array of values to potentially write to file
-   TYPE(BD_OutputType),       INTENT(IN   )  :: y                                 ! outputs
-   TYPE(BD_OtherStateType),   INTENT(INOUT)  :: OtherState                        ! other states (for computing mesh transfers)
-   INTEGER(IntKi),            INTENT(  OUT)  :: ErrStat                           ! The error status code
-   CHARACTER(*),              INTENT(  OUT)  :: ErrMsg                            ! The error message, if an error occurred
+   TYPE(BD_ParameterType),    INTENT(IN   )  :: p                                 !< The module parameters
+   REAL(ReKi),                INTENT(INOUT)  :: AllOuts(0:)                       !< array of values to potentially write to file
+   TYPE(BD_OutputType),       INTENT(IN   )  :: y                                 !< outputs
+   TYPE(BD_MiscVarType),      INTENT(INOUT)  :: m                                 !< misc/optimization variables (for computing mesh transfers)
+   INTEGER(IntKi),            INTENT(  OUT)  :: ErrStat                           !< The error status code
+   CHARACTER(*),              INTENT(  OUT)  :: ErrMsg                            !< The error message, if an error occurred
 
       ! local variables
    CHARACTER(*), PARAMETER                   :: RoutineName = 'Calc_WriteOutput'
@@ -1459,12 +1479,12 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
    ErrMsg  = ""
    
    
-   temp_vec = MATMUL(u%RootMotion%Orientation(:,:,1),y%ReactionForce%Force(:,1))
+   temp_vec = MATMUL(m%u2%RootMotion%Orientation(:,:,1),y%ReactionForce%Force(:,1))
    AllOuts( RootFxr ) = temp_vec(1)
    AllOuts( RootFyr ) = temp_vec(2)
    AllOuts( RootFzr ) = temp_vec(3) 
 
-   temp_vec = MATMUL(u%RootMotion%Orientation(:,:,1),y%ReactionForce%Moment(:,1))
+   temp_vec = MATMUL(m%u2%RootMotion%Orientation(:,:,1),y%ReactionForce%Moment(:,1))
    AllOuts( RootMxr ) = temp_vec(1)
    AllOuts( RootMyr ) = temp_vec(2)
    AllOuts( RootMzr ) = temp_vec(3) 
@@ -1489,8 +1509,8 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
    temp_tip0(2) = temp_vec(3)
    temp_tip0(3) = temp_vec(1)
    temp_ini(:) = temp_glbp(:) + temp_tip0(:)
-   temp_roott(:) = temp_glbp(:) + u%RootMotion%TranslationDisp(:,1)
-   temp33_2=TRANSPOSE(u%RootMotion%Orientation(1:3,1:3,1))  ! possible type conversion here
+   temp_roott(:) = temp_glbp(:) + m%u2%RootMotion%TranslationDisp(:,1)
+   temp33_2=TRANSPOSE(m%u2%RootMotion%Orientation(1:3,1:3,1))  ! possible type conversion here
    CALL BD_CrvExtractCrv(temp33_2,temp_vec,ErrStat2,ErrMsg2)
       CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
    CALL BD_CrvCompose(temp_cc,temp_vec,temp_glb,2,ErrStat2,ErrMsg2)
@@ -1500,7 +1520,7 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
    temp_vec = MATMUL(temp_R,temp_tip0)
    temp_cur = temp_roott + temp_vec
    temp_vec = y%BldMotion%TranslationDisp(1:3,p%node_elem*p%elem_total) - (temp_cur(:) - temp_ini(:))
-   temp_vec = MATMUL(u%RootMotion%Orientation(1:3,1:3,1),temp_vec)
+   temp_vec = MATMUL(m%u2%RootMotion%Orientation(1:3,1:3,1),temp_vec)
    AllOuts( TipTDxr ) = temp_vec(1)
    AllOuts( TipTDyr ) = temp_vec(2)
    AllOuts( TipTDzr ) = temp_vec(3)
@@ -1514,13 +1534,13 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
       CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
    CALL BD_CrvCompose(temp_vec,temp_cc,temp_vec2,0,ErrStat2,ErrMsg2)
       CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
-   temp_cur(:) = 0.0D0
+   temp_cur(:) = 0.0_BDKi
    temp33_2=TRANSPOSE(y%BldMotion%Orientation(1:3,1:3,p%node_elem*p%elem_total)) ! possible type conversion here   
    CALL BD_CrvExtractCrv(temp33_2,temp_cur,ErrStat2,ErrMsg2)
       CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
    CALL BD_CrvCompose(temp_vec2,temp_cur,temp_vec,2,ErrStat2,ErrMsg2)
       CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
-   temp_vec(:) = MATMUL(u%RootMotion%Orientation(1:3,1:3,1),temp_vec2)
+   temp_vec(:) = MATMUL(m%u2%RootMotion%Orientation(1:3,1:3,1),temp_vec2)
    AllOuts( TipRDxr ) = temp_vec(1)
    AllOuts( TipRDyr ) = temp_vec(2)
    AllOuts( TipRDzr ) = temp_vec(3)
@@ -1577,7 +1597,7 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
       temp_vec = MATMUL(temp_R,temp_tip0)
       temp_cur = temp_roott + temp_vec
       temp_vec = y%BldMotion%TranslationDisp(1:3,p%node_elem*(elem_no-1)+node_no) - (temp_cur - temp_ini)
-      temp_vec = MATMUL(u%RootMotion%Orientation(1:3,1:3,1),temp_vec)
+      temp_vec = MATMUL(m%u2%RootMotion%Orientation(1:3,1:3,1),temp_vec)
       AllOuts( NTDr( beta,1 ) ) = temp_vec(1) 
       AllOuts( NTDr( beta,2 ) ) = temp_vec(2)
       AllOuts( NTDr( beta,3 ) ) = temp_vec(3)
@@ -1596,7 +1616,7 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
       CALL BD_CrvCompose(temp_vec2,temp_cur,temp_vec,2,ErrStat2,ErrMsg2)
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
-      temp_vec = MATMUL(u%RootMotion%Orientation(1:3,1:3,1),temp_vec2)
+      temp_vec = MATMUL(m%u2%RootMotion%Orientation(1:3,1:3,1),temp_vec2)
       AllOuts( NRDr( beta,1 ) ) = temp_vec(1)
       AllOuts( NRDr( beta,2 ) ) = temp_vec(2) 
       AllOuts( NRDr( beta,3 ) ) = temp_vec(3)
@@ -1618,12 +1638,12 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
       AllOuts( NRAg( beta,3 ) ) = y%BldMotion%RotationAcc(3,j)*R2D
             
       !
-      temp_vec = MATMUL(temp33,u%PointLoad%Force(:,j))
+      temp_vec = MATMUL(temp33,m%u2%PointLoad%Force(:,j))
       AllOuts( NPFl( beta,1 ) ) = temp_vec(1) 
       AllOuts( NPFl( beta,2 ) ) = temp_vec(2) 
       AllOuts( NPFl( beta,3 ) ) = temp_vec(3)     
       !
-      temp_vec = MATMUL(temp33,u%PointLoad%Moment(:,j))
+      temp_vec = MATMUL(temp33,m%u2%PointLoad%Moment(:,j))
       AllOuts( NPMl( beta,1 ) ) = temp_vec(1) 
       AllOuts( NPMl( beta,2 ) ) = temp_vec(2) 
       AllOuts( NPMl( beta,3 ) ) = temp_vec(3) 
@@ -1635,11 +1655,11 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
    if (p%OutInputs) then 
 
          ! transfer the output motions to the input nodes for load transfer
-      CALL Transfer_Line2_to_Line2( y%BldMotion, OtherState%y_BldMotion_at_u, OtherState%Map_y_BldMotion_to_u, ErrStat2, ErrMsg2 )
+      CALL Transfer_Line2_to_Line2( y%BldMotion, m%y_BldMotion_at_u, m%Map_y_BldMotion_to_u, ErrStat2, ErrMsg2 )
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
       
          ! transfer the input loads to the output nodes for writing output
-      CALL Transfer_Line2_to_Line2( u%DistrLoad, OtherState%u_DistrLoad_at_y, OtherState%Map_u_DistrLoad_to_y, ErrStat2, ErrMsg2, OtherState%y_BldMotion_at_u, y%BldMotion)
+      CALL Transfer_Line2_to_Line2( m%u2%DistrLoad, m%u_DistrLoad_at_y, m%Map_u_DistrLoad_to_y, ErrStat2, ErrMsg2, m%y_BldMotion_at_u, y%BldMotion)
          CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
          
       
@@ -1659,8 +1679,8 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
          temp_id = (elem_no-1)*p%node_elem+node_no
          temp33 = y%BldMotion%Orientation(1:3,1:3,temp_id)
          
-         AllOuts( NDFl( beta,: ) ) = MATMUL(temp33,OtherState%u_DistrLoad_at_y%Force( :,j))
-         AllOuts( NDMl( beta,: ) ) = MATMUL(temp33,OtherState%u_DistrLoad_at_y%Moment(:,j))
+         AllOuts( NDFl( beta,: ) ) = MATMUL(temp33,m%u_DistrLoad_at_y%Force( :,j))
+         AllOuts( NDMl( beta,: ) ) = MATMUL(temp33,m%u_DistrLoad_at_y%Moment(:,j))
          
       end do ! nodes
          
@@ -1672,24 +1692,24 @@ SUBROUTINE Calc_WriteOutput( p, u, AllOuts, y, OtherState, ErrStat, ErrMsg )
    
 END SUBROUTINE Calc_WriteOutput
 !----------------------------------------------------------------------------------------------------------------------------------
-SUBROUTINE BD_PrintSum( p, u, y, x, OtherState, RootName, ErrStat, ErrMsg )
-! This routine generates the summary file, which contains a regurgitation of  the input data and interpolated flexible body data.
+!> This routine generates the summary file, which contains a regurgitation of  the input data and interpolated flexible body data.
+SUBROUTINE BD_PrintSum( p, u, y, x, m, RootName, ErrStat, ErrMsg )
 
       ! passed variables
-   TYPE(BD_ParameterType),       INTENT(IN)  :: p                 ! Parameters of the structural dynamics module
-   TYPE(BD_InputType),           INTENT(IN)  :: u                 ! inputs 
-   TYPE(BD_OutputType),          INTENT(IN)  :: y                 ! outputs
-   type(BD_ContinuousStateType), intent(in)  :: x                 ! Continuous states
-   TYPE(BD_OtherStateType),      INTENT(IN)  :: OtherState        ! Other/optimization states of the structural dynamics module 
-   CHARACTER(*),                 INTENT(IN)  :: RootName
-   INTEGER(IntKi),               INTENT(OUT) :: ErrStat
-   CHARACTER(*),                 INTENT(OUT) :: ErrMsg
+   TYPE(BD_ParameterType),       INTENT(IN)  :: p                 !< Parameters of the structural dynamics module
+   TYPE(BD_InputType),           INTENT(IN)  :: u                 !< inputs 
+   TYPE(BD_OutputType),          INTENT(IN)  :: y                 !< outputs
+   type(BD_ContinuousStateType), intent(in)  :: x                 !< Continuous states
+   TYPE(BD_MiscVarType),         INTENT(IN)  :: m                 !< misc/optimization variables 
+   CHARACTER(*),                 INTENT(IN)  :: RootName          !< root name of summary file to be generated (will add .sum in this routine)
+   INTEGER(IntKi),               INTENT(OUT) :: ErrStat           !< error status
+   CHARACTER(*),                 INTENT(OUT) :: ErrMsg            !< error message
 
 
       ! Local variables.
 
    INTEGER(IntKi)               :: I                                               ! Index for the nodes
-   INTEGER(IntKi)               :: j                                               ! Generic index
+   INTEGER(IntKi)               :: j, k                                            ! Generic index
    INTEGER(IntKi)               :: temp_id                                         ! Generic index
    INTEGER(IntKi)               :: UnSu                                            ! I/O unit number for the summary output file
 
@@ -1730,9 +1750,9 @@ SUBROUTINE BD_PrintSum( p, u, y, x, OtherState, RootName, ErrStat, ErrMsg )
    WRITE (UnSu,'(A)')  'Gravity vector (m/s^2):' 
    WRITE (UnSu,'(3ES18.5)' ) p%gravity(:)
 
-   IF(p%analysis_type .EQ. 1) THEN
+   IF(p%analysis_type .EQ. BD_STATIC_ANALYSIS) THEN
        WRITE (UnSu,'(A)')  'Analysis type: STATIC' 
-   ELSEIF(p%analysis_type .EQ. 2) THEN
+   ELSEIF(p%analysis_type .EQ. BD_DYNAMIC_ANALYSIS) THEN
        WRITE (UnSu,'(A)')  'Analysis type: DYNAMIC' 
    ENDIF
 
@@ -1756,20 +1776,30 @@ SUBROUTINE BD_PrintSum( p, u, y, x, OtherState, RootName, ErrStat, ErrMsg )
    WRITE (UnSu,'(A,I4)' ) 'Number of nodes:       ', p%node_total
 
    WRITE (UnSu,'(/,A)')  'Initial position vectors'
+   k=1
    DO i=1,p%elem_total
-       WRITE (UnSu,'(A,I4)')  'Element number: ',i
+       WRITE (UnSu,'(2x,A,I4)')  'Element number: ',i
+       WRITE (UnSu, '(2x,A,1x,A)') 'Node', 'Global node' 
+       WRITE (UnSu, '(2x,A,1x,A)') '----', '-----------' 
        DO j = 1, p%node_elem
            temp_id = (j-1)*p%dof_node
-           WRITE(UnSu,'(I4,3ES18.5)') j,p%uuN0(temp_id+1:temp_id+3,i)
+           WRITE(UnSu,'(I6,1x,I9,2x,3ES18.5)') j,k,p%uuN0(temp_id+1:temp_id+3,i)
+           k=k+1
        ENDDO
+       k = k-1
    ENDDO
    WRITE (UnSu,'(/,A)')  'Initial rotation vectors'
+   k=1
    DO i=1,p%elem_total
-       WRITE (UnSu,'(A,I4)')  'Element number: ',i
+       WRITE (UnSu,'(2x,A,I4)')  'Element number: ',i
+       WRITE (UnSu, '(2x,A,1x,A)') 'Node', 'Global node' 
+       WRITE (UnSu, '(2x,A,1x,A)') '----', '-----------' 
        DO j = 1, p%node_elem
            temp_id = (j-1)*p%dof_node
-           WRITE(UnSu,'(I4,3ES18.5)') j,p%uuN0(temp_id+4:temp_id+6,i)
+           WRITE(UnSu,'(I6,1x,I9,2x,3ES18.5)') j,k,p%uuN0(temp_id+4:temp_id+6,i)
+           k=k+1
        ENDDO
+       k = k-1
    ENDDO
 
    WRITE (UnSu,'(/,A)')  'Quadrature point position vectors'
@@ -1831,24 +1861,11 @@ SUBROUTINE BD_PrintSum( p, u, y, x, OtherState, RootName, ErrStat, ErrMsg )
        WRITE(UnSu,'(I4,3ES18.5)') i,x%dqdt(temp_id+4:temp_id+6)
    ENDDO
 
-      ! Interpolated blade properties.
-
-
-      !WRITE (UnSu,'(//,A,I1,A,/)')  'Interpolated beam properties:'
-      !
-      !WRITE (UnSu,'(A)')  'Node  BlFract   RNodes  DRNodes PitchAxis  StrcTwst  BMassDen    FlpStff    EdgStff'
-      !WRITE (UnSu,'(A)')  ' (-)      (-)      (m)      (m)       (-)     (deg)    (kg/m)     (Nm^2)     (Nm^2)'
-      !
-      !DO I=1,p%BldNodes
-      !   WRITE(UnSu,'(I4,3F9.3,3F10.3,2ES11.3)')  I, p%RNodesNorm(I), p%RNodes(I) + p%HubRad, p%DRNodes(I), &
-      !                                                p%PitchAxis(K,I),p%ThetaS(K,I)*R2D, p%MassB(K,I), &
-      !                                                p%StiffBF(K,I), p%StiffBE(K,I)
-      !ENDDO ! I
-
-
+         
+   ! output channels:
    OutPFmt = '( I4, 3X,A '//TRIM(Num2LStr(ChanLen))//',1 X, A'//TRIM(Num2LStr(ChanLen))//' )'
    WRITE (UnSu,'(//,A,/)')  'Requested Outputs:'
-   WRITE (UnSu,"(/, '  Col  Parameter  Units', /, '  ---  ---------  -----')")
+   WRITE (UnSu,"( '  Col  Parameter  Units', /, '  ---  ---------  -----')")
    DO I = 0,p%NumOuts
       WRITE (UnSu,OutPFmt)  I, p%OutParam(I)%Name, p%OutParam(I)%Units
    END DO             

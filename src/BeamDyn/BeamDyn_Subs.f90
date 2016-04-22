@@ -1,6 +1,6 @@
 !**********************************************************************************************************************************
 ! LICENSING
-! Copyright (C) 2015  National Renewable Energy Laboratory
+! Copyright (C) 2015-2016  National Renewable Energy Laboratory
 !
 ! Licensed under the Apache License, Version 2.0 (the "License");
 ! you may not use this file except in compliance with the License.
@@ -26,28 +26,25 @@ MODULE BeamDyn_Subs
 CONTAINS
 
 !-----------------------------------------------------------------------------------------------------------------------------------
+!> This subroutine determines the (N+1) Gauss-Lobatto-Legendre points x and weights w
+!!
+!! For details, see
+!! \@book{Deville-etal:2002,
+!!  author =    {M. O. Deville and P. F. Fischer and E. H. Mund},
+!!  title =     {High-Order Methods for Incompressible Fluid Flow},
+!!  publisher = {Cambridge University Press},
+!!  address = {Cambridge},
+!!  year =      2002
+!!}
 SUBROUTINE BD_GenerateGLL(N, x, w, ErrStat, ErrMsg)
-!
-! This subroutine determines the (N+1) Gauss-Lobatto-Legendre points x and weights w
-!
-! For details, see
-! @book{Deville-etal:2002,
-!  author =    {M. O. Deville and P. F. Fischer and E. H. Mund},
-!  title =     {High-Order Methods for Incompressible Fluid Flow},
-!  publisher = {Cambridge University Press},
-!  address = {Cambridge},
-!  year =      2002
-!}
-!
-!..................................................................................................................................
 
    ! input variables
 
-   INTEGER(IntKi), INTENT(IN   ):: N           ! Order of spectral element
-   REAL(BDKi),     INTENT(  OUT):: x(:)        ! location of GLL nodes
-   REAL(BDKi),     INTENT(  OUT):: w(:)        ! quadrature weights at GLL nodes
-   INTEGER(IntKi), INTENT(  OUT):: ErrStat     ! Error status of the operation
-   CHARACTER(*),   INTENT(  OUT):: ErrMsg      ! Error message if ErrStat /= ErrID_None
+   INTEGER(IntKi), INTENT(IN   ):: N           !< Order of spectral element
+   REAL(BDKi),     INTENT(  OUT):: x(n+1)      !< location of GLL nodes
+   REAL(BDKi),     INTENT(  OUT):: w(n+1)      !< quadrature weights at GLL nodes
+   INTEGER(IntKi), INTENT(  OUT):: ErrStat     !< Error status of the operation
+   CHARACTER(*),   INTENT(  OUT):: ErrMsg      !< Error message if ErrStat /= ErrID_None
 
    REAL(BDKi)      , PARAMETER  :: tol   = 10.0_BDKi*EPSILON(tol) / 2.0_BDKi   ! tolerance for newton-raphson solve (ignores 1 significant digit)
    INTEGER(IntKi)  , PARAMETER  :: maxit = 1000                                ! maximum allowable iterations in newton-raphson solve
@@ -95,8 +92,28 @@ SUBROUTINE BD_GenerateGLL(N, x, w, ErrStat, ErrMsg)
 
 END SUBROUTINE BD_GenerateGLL
 !-----------------------------------------------------------------------------------------------------------------------------------
+!> this function returns the skew-symmetric matrix formed by the values of vect
+FUNCTION BD_Tilde_SP(vect) ! JRI: necessary for stand-alone version
+
+   REAL(ReKi),INTENT(IN):: vect(3)   
+   REAL(ReKi)           :: BD_Tilde_SP(3,3)
+
+   BD_Tilde_SP(1,1) =  0.0_ReKi
+   BD_Tilde_SP(2,1) =  vect(3)
+   BD_Tilde_SP(3,1) = -vect(2)
+
+   BD_Tilde_SP(1,2) = -vect(3)
+   BD_Tilde_SP(2,2) =  0.0_ReKi
+   BD_Tilde_SP(3,2) =  vect(1)
+
+   BD_Tilde_SP(1,3) =  vect(2)   
+   BD_Tilde_SP(2,3) = -vect(1)
+   BD_Tilde_SP(3,3) =  0.0_ReKi
+
+END FUNCTION BD_Tilde_SP
+!-----------------------------------------------------------------------------------------------------------------------------------
+!> this function returns the skew-symmetric matrix formed by the values of vect
 FUNCTION BD_Tilde(vect)
-! this function returns the skew-symmetric matrix formed by the values of vect
 
    REAL(BDKi),INTENT(IN):: vect(3)   
    REAL(BDKi)           :: BD_Tilde(3,3)
@@ -115,15 +132,14 @@ FUNCTION BD_Tilde(vect)
 
 END FUNCTION BD_Tilde
 !-----------------------------------------------------------------------------------------------------------------------------------
+!> This subroutine computes the rotation tensor (RT)
+!! given Wiener-Milenkovic rotation parameters
 SUBROUTINE BD_CrvMatrixR(cc,Rr,ErrStat,ErrMsg)
-!--------------------------------------------------
-! This subroutine computes the rotation tensor (RT)
-! given Wiener-Milenkovic rotation parameters
-!--------------------------------------------------
-   REAL(BdKi),    INTENT(IN   ):: cc(:)
-   REAL(BdKi),    INTENT(  OUT):: Rr(:,:)
-   INTEGER(IntKi),INTENT(  OUT):: ErrStat       ! Error status of the operation
-   CHARACTER(*),  INTENT(  OUT):: ErrMsg        ! Error message if ErrStat /= ErrID_None
+
+   REAL(BdKi),    INTENT(IN   ):: cc(3)
+   REAL(BdKi),    INTENT(  OUT):: Rr(3,3)
+   INTEGER(IntKi),INTENT(  OUT):: ErrStat       !< Error status of the operation
+   CHARACTER(*),  INTENT(  OUT):: ErrMsg        !< Error message if ErrStat /= ErrID_None
 
    REAL(BDKi)                  :: c0
    REAL(BDKi)                  :: c1
@@ -157,8 +173,8 @@ END SUBROUTINE BD_CrvMatrixR
 !-----------------------------------------------------------------------------------------------------------------------------------
 SUBROUTINE BD_CrvMatrixH(cc,Hh)
 
-   REAL(BDKi),INTENT(IN) ::cc(:)
-   REAL(BDKi),INTENT(OUT)::Hh(:,:)
+   REAL(BDKi),INTENT(IN) ::cc(3)
+   REAL(BDKi),INTENT(OUT)::Hh(3,3)
 
    REAL(BDKi):: cf1,cf2,cf3,cq,ocq,aa,cb0,cb1,cb2,cb3
 
@@ -187,24 +203,21 @@ SUBROUTINE BD_CrvMatrixH(cc,Hh)
 
 END SUBROUTINE BD_CrvMatrixH
 !-----------------------------------------------------------------------------------------------------------------------------------
+!>   This subroutine composes two Wiener-Milenkovic parameters pp and qq to find the resulting parameter rr
+!!   This method is detailed in the paper: Bauchau, O.A., 2008, "Interpolation of finite rotations in flexible
+!!   multi-body dynamics simulations", IMechE, Equation (9). \n
+!!   flag = 0: R(rr) = R    (pp) R    (qq) \n
+!!   flag = 1: R(rr) = R(T) (pp) R    (qq) \n
+!!   flag = 2: R(rr) = R    (pp) R(T) (qq) \n
+!!   flag = 3: R(rr) = R(T) (pp) R(T) (qq)
 SUBROUTINE BD_CrvCompose( rr, pp, qq, flag, ErrStat, ErrMsg)
 
-!************************************************************************************************************
-!   This subroutine composes two Wiener-Milenkovic parameters pp and qq to find the resulting parameter rr
-!   This method is detailed in the paper: Bauchau, O.A., 2008, "Interpolation of finite rotations in flexible
-!   multi-body dynamics simulations", IMechE, Equation (9).
-!   flag = 0: R(rr) = R    (pp) R    (qq)
-!   flag = 1: R(rr) = R(T) (pp) R    (qq)
-!   flag = 2: R(rr) = R    (pp) R(T) (qq)
-!   flag = 3: R(rr) = R(T) (pp) R(T) (qq)
-!************************************************************************************************************
-
-   REAL(BDKi),    INTENT(IN   ):: pp(:)     ! Input rotation 1
-   REAL(BDKi),    INTENT(IN   ):: qq(:)     ! Input rotation 2
-   INTEGER       ,INTENT(IN   ):: flag      ! Option flag
-   REAL(BDKi),    INTENT(  OUT):: rr(:)     ! Composed rotation
-   INTEGER(IntKi),INTENT(  OUT):: ErrStat   ! Error status of the operation
-   CHARACTER(*),  INTENT(  OUT):: ErrMsg    ! Error message if ErrStat /= ErrID_None
+   REAL(BDKi),    INTENT(IN   ):: pp(3)     !< Input rotation 1
+   REAL(BDKi),    INTENT(IN   ):: qq(3)     !< Input rotation 2
+   INTEGER       ,INTENT(IN   ):: flag      !< Option flag
+   REAL(BDKi),    INTENT(  OUT):: rr(3)     !< Composed rotation
+   INTEGER(IntKi),INTENT(  OUT):: ErrStat   !< Error status of the operation
+   CHARACTER(*),  INTENT(  OUT):: ErrMsg    !< Error message if ErrStat /= ErrID_None
 
    REAL(BDKi)                  :: pp0
    REAL(BDKi)                  :: pp1
@@ -262,16 +275,14 @@ SUBROUTINE BD_CrvCompose( rr, pp, qq, flag, ErrStat, ErrMsg)
 
 END SUBROUTINE BD_CrvCompose
 !-----------------------------------------------------------------------------------------------------------------------------------
+!> This subroutine computes the CRV parameters given
+!! the rotation matrix
 SUBROUTINE BD_CrvExtractCrv(Rr,cc,ErrStat,ErrMsg)
-!--------------------------------------------------
-! This subroutine computes the CRV parameters given
-! the rotation matrix
-!--------------------------------------------------
 
-   REAL(BDKi),    INTENT(IN   ):: Rr(:,:)       ! Rotation Matrix
-   REAL(BDKi),    INTENT(  OUT):: cc(:)         ! Crv paramteres
-   INTEGER(IntKi),INTENT(  OUT):: ErrStat       ! Error status of the operation
-   CHARACTER(*),  INTENT(  OUT):: ErrMsg        ! Error message if ErrStat /= ErrID_None
+   REAL(BDKi),    INTENT(IN   ):: Rr(3,3)       !< Rotation Matrix
+   REAL(BDKi),    INTENT(  OUT):: cc(3)         !< Crv paramteres
+   INTEGER(IntKi),INTENT(  OUT):: ErrStat       !< Error status of the operation
+   CHARACTER(*),  INTENT(  OUT):: ErrMsg        !< Error message if ErrStat /= ErrID_None
 
    !Local variables
    REAL(BDKi)                  :: pivot
@@ -328,23 +339,21 @@ SUBROUTINE BD_CrvExtractCrv(Rr,cc,ErrStat,ErrMsg)
 
 END SUBROUTINE BD_CrvExtractCrv
 !------------------------------------------------------------------------------
+!> This subroutine generates n-point gauss-legendre quadrature points and weights
+!! 
+!! Subroutine is based on well-known formulas for generating Legendre polynomials, the 
+!! roots of which are the Gauss-Legendre quadrature points.  Also used are well-known
+!! expressions for the quadrature weights associated with the GL quadrature points.  
+!! The basic idea of the logic is to use the roots of the Chebyshev polynomial as
+!! an initial guess for the roots of the Legendre polynomial, and to then use Newton
+!! iteration to find the "exact" roots.
 SUBROUTINE BD_GaussPointWeight(n, x, w, ErrStat, ErrMsg)
-!---------------------------------------------------------------------------
-! This subroutine generates n-point gauss-legendre quadrature points and weights
-! 
-! Subroutine is based on well-known formulas for generating Legendre polynomials, the 
-! roots of which are the Gauss-Legendre quadrature points.  Also used are well-known
-! expressions for the quadrature weights associated with the GL quadrature points.  
-! The basic idea of the logic is to use the roots of the Chebyshev polynomial as
-! an initial guess for the roots of the Legendre polynomial, and to then use Newton
-! iteration to find the "exact" roots.
-!-------------------------------------------------------------------------
 
-   INTEGER(IntKi),INTENT(IN   ):: n       ! Number of Gauss point
-   REAL(BDKi),    INTENT(  OUT):: x(:)    ! Gauss point location
-   REAL(BDKi),    INTENT(  OUT):: w(:)    ! Gauss point weight
-   INTEGER(IntKi),INTENT(  OUT):: ErrStat ! Error status of the operation
-   CHARACTER(*),  INTENT(  OUT):: ErrMsg  ! Error message if ErrStat /=
+   INTEGER(IntKi),INTENT(IN   ):: n       !< Number of Gauss point
+   REAL(BDKi),    INTENT(  OUT):: x(n)    !< Gauss point location
+   REAL(BDKi),    INTENT(  OUT):: w(n)    !< Gauss point weight
+   INTEGER(IntKi),INTENT(  OUT):: ErrStat !< Error status of the operation
+   CHARACTER(*),  INTENT(  OUT):: ErrMsg  !< Error message if ErrStat /=
 
    ! local variables
 
@@ -433,11 +442,11 @@ SUBROUTINE BD_GaussPointWeight(n, x, w, ErrStat, ErrMsg)
 !-----------------------------------------------------------------------------------------------------------------------------------
 SUBROUTINE BD_MotionTensor(RotTen,Pos,MotTen,flag)
 
-   REAL(BDKi),     INTENT(IN   ):: RotTen(:,:)
-   REAL(BDKi),     INTENT(IN   ):: Pos(:)
-   REAL(BDKi),     INTENT(  OUT):: MotTen(:,:)
-   INTEGER(IntKi), INTENT(IN   ):: flag            ! 0: Motion Tensor;
-                                                   ! 1: Inverse of Motion Tensor
+   REAL(BDKi),     INTENT(IN   ):: RotTen(3,3)
+   REAL(BDKi),     INTENT(IN   ):: Pos(3)
+   REAL(BDKi),     INTENT(  OUT):: MotTen(6,6)
+   INTEGER(IntKi), INTENT(IN   ):: flag            !< 0: Motion Tensor;
+                                                   !! 1: Inverse of Motion Tensor
 
    MotTen = 0.0_BDKi
    IF (flag .EQ. 0) THEN
@@ -452,5 +461,72 @@ SUBROUTINE BD_MotionTensor(RotTen,Pos,MotTen,flag)
 
 END SUBROUTINE BD_MotionTensor
 !-----------------------------------------------------------------------------------------------------------------------------------
+!> This routine calculates y%BldMotion%TranslationDisp, y%BldMotion%Orientation, y%BldMotion%TranslationVel, and
+!! y%BldMotion%RotationVel, which depend only on states and parameters.
+SUBROUTINE Set_BldMotion_NoAcc(p, x, y, ErrStat, ErrMsg)
 
+   TYPE(BD_ParameterType),       INTENT(IN   )  :: p           !< Parameters
+   TYPE(BD_ContinuousStateType), INTENT(IN   )  :: x           !< Continuous states at t
+   TYPE(BD_OutputType),          INTENT(INOUT)  :: y           !< Outputs computed at t (Input only so that mesh con-
+                                                               !!   nectivity information does not have to be recalculated)
+   INTEGER(IntKi),               INTENT(  OUT)  :: ErrStat     !< Error status of the operation
+   CHARACTER(*),                 INTENT(  OUT)  :: ErrMsg      !< Error message if ErrStat /= ErrID_None
+
+   INTEGER(IntKi)                               :: i
+   INTEGER(IntKi)                               :: j
+   INTEGER(IntKi)                               :: temp_id
+   INTEGER(IntKi)                               :: temp_id2
+   REAL(BDKi)                                   :: cc(3)
+   REAL(BDKi)                                   :: cc0(3)
+   REAL(BDKi)                                   :: temp_cc(3)
+   REAL(BDKi)                                   :: temp_R(3,3)
+   INTEGER(IntKi)                               :: ErrStat2                     ! Temporary Error status
+   CHARACTER(ErrMsgLen)                         :: ErrMsg2                      ! Temporary Error message
+   CHARACTER(*), PARAMETER                      :: RoutineName = 'Set_BldMotion_NoAcc'
+   
+   ! Initialize ErrStat
+
+   ErrStat = ErrID_None
+   ErrMsg  = ""
+
+   DO i=1,p%elem_total
+       DO j=1,p%node_elem
+           temp_id = ((i-1)*(p%node_elem-1)+j-1)*p%dof_node
+           temp_id2= (i-1)*p%node_elem+j
+           
+           temp_cc = MATMUL(p%GlbRot,x%q(temp_id+1:temp_id+3))
+           y%BldMotion%TranslationDisp(1,temp_id2) = temp_cc(2)
+           y%BldMotion%TranslationDisp(2,temp_id2) = temp_cc(3)
+           y%BldMotion%TranslationDisp(3,temp_id2) = temp_cc(1)
+           
+           cc = MATMUL(p%GlbRot,x%q(temp_id+4:temp_id+6))
+           temp_id = (j-1)*p%dof_node
+           cc0 = p%uuN0(temp_id+4:temp_id+6,i)
+           cc0 = MATMUL(p%GlbRot,cc0)
+           CALL BD_CrvCompose(temp_cc,p%Glb_crv,cc0,0,ErrStat2,ErrMsg2) ! set temp_cc
+               CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
+           CALL BD_CrvCompose(cc0,cc,temp_cc,0,ErrStat2,ErrMsg2) ! set cc0
+               CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
+           temp_cc(1) = cc0(2)
+           temp_cc(2) = cc0(3)
+           temp_cc(3) = cc0(1)
+           CALL BD_CrvMatrixR(temp_cc,temp_R,ErrStat2,ErrMsg2)
+               CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
+           y%BldMotion%Orientation(1:3,1:3,temp_id2) = TRANSPOSE(temp_R(1:3,1:3))
+
+           temp_id = ((i-1)*(p%node_elem-1)+j-1)*p%dof_node
+           temp_cc = MATMUL(p%GlbRot,x%dqdt(temp_id+1:temp_id+3))
+           y%BldMotion%TranslationVel(1,temp_id2) = temp_cc(2)
+           y%BldMotion%TranslationVel(2,temp_id2) = temp_cc(3)
+           y%BldMotion%TranslationVel(3,temp_id2) = temp_cc(1)
+           
+           temp_cc(:) = MATMUL(p%GlbRot,x%dqdt(temp_id+4:temp_id+6))
+           y%BldMotion%RotationVel(1,temp_id2) = temp_cc(2)
+           y%BldMotion%RotationVel(2,temp_id2) = temp_cc(3)
+           y%BldMotion%RotationVel(3,temp_id2) = temp_cc(1)
+       ENDDO
+   ENDDO
+   
+END SUBROUTINE Set_BldMotion_NoAcc
+!-----------------------------------------------------------------------------------------------------------------------------------
 END MODULE BeamDyn_Subs
