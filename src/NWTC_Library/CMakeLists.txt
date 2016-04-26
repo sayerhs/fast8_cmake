@@ -1,9 +1,9 @@
 
 set(NWTCLIBS_SOURCES ModMesh.f90 ModMesh_Mapping.f90 ModMesh_Types.f90
-    NWTC_Base.f90 NWTC_FFTPACK.f90 NWTC_IO.f90 NWTC_LAPACK.f90
-    NWTC_FitPack.f90 NWTC_Library.f90 NWTC_Library_Types.f90
-    NWTC_Num.f90 NWTC_ScaLAPACK.f90 dlasrt2.f fftpack4.1.f slasrt2.f
-    SingPrec.f90 dierckx_fitpack.f )
+    NWTC_Base.f90 NetLib/NWTC_FFTPACK.f90 NWTC_IO.f90 NetLib/NWTC_LAPACK.f90
+    NetLib/NWTC_FitPack.f90 NWTC_Library.f90 NWTC_Library_Types.f90
+    NWTC_Num.f90 NetLib/NWTC_ScaLAPACK.f90 NetLib/dlasrt2.f NetLib/fftpack4.1.f NetLib/slasrt2.f
+    SingPrec.f90 NetLib/dierckx_fitpack.f )
 
 #get_filename_component(FCNAME ${CMAKE_Fortran_COMPILER} NAME)
 
