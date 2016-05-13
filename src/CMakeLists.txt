@@ -19,7 +19,7 @@ endif (NOT CMAKE_BUILD_TYPE)
 find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
 
-# Set user selectable option to turn on/off double precision 
+# Set user selectable option to turn on/off double precision
 option(DOUBLE_PRECISION "Treat REAL as double precision" on)
 option(USE_DLL_INTERFACE "Enable runtime loading of Controller DLLs" on)
 option(LIB_LOAD "OrcaFlex library loading" off)
@@ -27,10 +27,16 @@ option(LIB_LOAD "OrcaFlex library loading" off)
 # By default we set the preprocessor and position independent code
 # directives
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -fPIC")
-# Set the fortran modules to be stored in a common directory 
+# Set the fortran modules to be stored in a common directory
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/ftnmods )
-# Add that to the include path 
+# Add that to the include path
 include_directories( ${CMAKE_Fortran_MODULE_DIRECTORY} )
+
+# Force free-form compilation
+get_filename_component(FCNAME ${CMAKE_Fortran_COMPILER} NAME)
+if (FCNAME MATCHES "gfortran.*")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none")
+endif (FCNAME MATCHES "gfortran.*")
 
 # Configure compiler options for double precision build
 if (DOUBLE_PRECISION)
@@ -73,23 +79,18 @@ endforeach(IDIR IN LISTS ${FAST_SUBDIRS})
 #
 # Wrapper to autogenerate *_Types.f90
 #    Usage: generate_f90types(BeamDyn_Registry.txt BeamDyn_Types.f90)
-# 
+#
 function (generate_f90types regfile outfile)
   get_filename_component(input ${regfile} ABSOLUTE)
   get_filename_component(output_base ${outfile} NAME)
   set(output "${CMAKE_CURRENT_BINARY_DIR}/${output_base}")
   add_custom_command(
-    OUTPUT ${output} 
+    OUTPUT ${output}
     DEPENDS fast_registry ${input}
     COMMAND ${CMAKE_BINARY_DIR}/Registry/fast_registry ${input} ${REG_INCLUDES} ${ARGN})
   set_source_files_properties(${output} PROPERTIES GENERATED TRUE)
 endfunction (generate_f90types regfile outfile)
 
-# Force free-form compilation 
-get_filename_component(FCNAME ${CMAKE_Fortran_COMPILER} NAME)
-if (FCNAME MATCHES "gfortran.*")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none")
-endif (FCNAME MATCHES "gfortran.*")
 
 # Include compilation rules for subdirectories
 add_subdirectory(Registry)
