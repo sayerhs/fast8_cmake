@@ -1,5 +1,5 @@
 !**********************************************************************************************************************************
-! FAST_Solver.f90, FAST_Subs.f90, and FAST_Mods.f90 make up the FAST glue code in the FAST Modularization Framework.
+! FAST_Solver.f90, FAST_Subs.f90, FAST_Lin.f90, and FAST_Mods.f90 make up the FAST glue code in the FAST Modularization Framework.
 ! FAST_Prog.f90, FAST_Library.f90, FAST_Prog.c are different drivers for this code.
 !..................................................................................................................................
 ! LICENSING
@@ -20,13 +20,14 @@
 ! limitations under the License.
 !
 !**********************************************************************************************************************************
-! File last committed: $Date: 2016-04-12 23:36:13 -0600 (Tue, 12 Apr 2016) $
-! (File) Revision #: $Rev: 1260 $
-! URL: $HeadURL: https://windsvn.nrel.gov/FAST/branches/BJonkman/Source/FAST_Subs.f90 $
+! File last committed: $Date: 2016-07-25 13:09:23 -0600 (Mon, 25 Jul 2016) $
+! (File) Revision #: $Rev: 1299 $
+! URL: $HeadURL: https://windsvn2.nrel.gov/FAST/branches/BJonkman/Source/FAST_Subs.f90 $
 !**********************************************************************************************************************************
 MODULE FAST_Subs
 
    USE FAST_Solver
+   USE FAST_Linear
    
    IMPLICIT NONE
 
@@ -236,7 +237,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
          RETURN
       END IF
       
-   
+   InitInData_ED%Linearize = p_FAST%Linearize
    InitInData_ED%InputFile = p_FAST%EDFile
    IF ( p_FAST%CompAero == Module_AD14 ) THEN
       InitInData_ED%ADInputFile = p_FAST%AeroFile
@@ -244,7 +245,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
       InitInData_ED%ADInputFile = ""
    END IF
    
-   InitInData_ED%RootName      = p_FAST%OutFileRoot
+   InitInData_ED%RootName      = TRIM(p_FAST%OutFileRoot)//'.'//TRIM(y_FAST%Module_Abrev(Module_ED))
    InitInData_ED%CompElast     = p_FAST%CompElast == Module_ED
 
    CALL ED_Init( InitInData_ED, ED%Input(1), ED%p, ED%x(STATE_CURR), ED%xd(STATE_CURR), ED%z(STATE_CURR), ED%OtherSt(STATE_CURR), &
@@ -261,6 +262,13 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
          CALL SetErrStat(ErrID_Fatal,"ElastoDyn TowerBsHt must not be negative for floating offshore systems.",ErrStat,ErrMsg,RoutineName)
       END IF      
    END IF   
+   
+   if (allocated(InitOutData_ED%LinNames_y)) call move_alloc(InitOutData_ED%LinNames_y,y_FAST%Lin%Modules(MODULE_ED)%Names_y )
+   if (allocated(InitOutData_ED%LinNames_x)) call move_alloc(InitOutData_ED%LinNames_x,y_FAST%Lin%Modules(MODULE_ED)%Names_x )
+   if (allocated(InitOutData_ED%LinNames_u)) call move_alloc(InitOutData_ED%LinNames_u,y_FAST%Lin%Modules(MODULE_ED)%Names_u )
+   if (allocated(InitOutData_ED%RotFrame_y)) call move_alloc(InitOutData_ED%RotFrame_y,y_FAST%Lin%Modules(MODULE_ED)%RotFrame_y )
+   if (allocated(InitOutData_ED%RotFrame_x)) call move_alloc(InitOutData_ED%RotFrame_x,y_FAST%Lin%Modules(MODULE_ED)%RotFrame_x )
+   if (allocated(InitOutData_ED%RotFrame_u)) call move_alloc(InitOutData_ED%RotFrame_u,y_FAST%Lin%Modules(MODULE_ED)%RotFrame_u )
    
    IF (ErrStat >= AbortErrLev) THEN
       CALL Cleanup()
@@ -310,7 +318,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
       InitInData_BD%HubRot = ED%Output(1)%HubPtMotion%RefOrientation(:,:,1)
             
       DO k=1,p_FAST%nBeams  
-         InitInData_BD%RootName     = TRIM(p_FAST%OutFileRoot)//'.BD'//TRIM( Num2LStr(k) )
+         InitInData_BD%RootName     = TRIM(p_FAST%OutFileRoot)//'.'//TRIM(y_FAST%Module_Abrev(Module_BD))//TRIM( Num2LStr(k) )
          
          
          InitInData_BD%InputFile    = p_FAST%BDBldFile(k)
@@ -412,6 +420,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
             RETURN
          END IF
             
+      InitInData_AD%Linearize          = p_FAST%Linearize
       InitInData_AD%InputFile          = p_FAST%AeroFile
       InitInData_AD%NumBlades          = InitOutData_ED%NumBl
       InitInData_AD%RootName           = p_FAST%OutFileRoot
@@ -432,6 +441,13 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
       CALL SetModuleSubstepTime(Module_AD, p_FAST, y_FAST, ErrStat2, ErrMsg2)
          CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
                                
+      if (allocated(InitOutData_AD%LinNames_u)) call move_alloc(InitOutData_AD%LinNames_u,y_FAST%Lin%Modules(MODULE_AD)%Names_u )
+      if (allocated(InitOutData_AD%LinNames_y)) call move_alloc(InitOutData_AD%LinNames_y,y_FAST%Lin%Modules(MODULE_AD)%Names_y )
+      if (allocated(InitOutData_AD%LinNames_z)) call move_alloc(InitOutData_AD%LinNames_z,y_FAST%Lin%Modules(MODULE_AD)%Names_z )
+      if (allocated(InitOutData_AD%RotFrame_u)) call move_alloc(InitOutData_AD%RotFrame_u,y_FAST%Lin%Modules(MODULE_AD)%RotFrame_u )
+      if (allocated(InitOutData_AD%RotFrame_y)) call move_alloc(InitOutData_AD%RotFrame_y,y_FAST%Lin%Modules(MODULE_AD)%RotFrame_y )
+      if (allocated(InitOutData_AD%RotFrame_z)) call move_alloc(InitOutData_AD%RotFrame_z,y_FAST%Lin%Modules(MODULE_AD)%RotFrame_z )
+      
       IF (ErrStat >= AbortErrLev) THEN
          CALL Cleanup()
          RETURN
@@ -456,8 +472,9 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
               
    IF ( p_FAST%CompInflow == Module_IfW ) THEN
       
+      InitInData_IfW%Linearize        = p_FAST%Linearize
       InitInData_IfW%InputFileName    = p_FAST%InflowFile
-      InitInData_IfW%RootName         = p_FAST%OutFileRoot
+      InitInData_IfW%RootName         = TRIM(p_FAST%OutFileRoot)//'.'//TRIM(y_FAST%Module_Abrev(Module_IfW))
       InitInData_IfW%UseInputFile     = .TRUE.
    
       InitInData_IfW%NumWindPoints = 0      
@@ -492,6 +509,11 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
       CALL SetModuleSubstepTime(Module_IfW, p_FAST, y_FAST, ErrStat2, ErrMsg2)
          CALL SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
          
+      if (allocated(InitOutData_IfW%LinNames_y)) call move_alloc(InitOutData_IfW%LinNames_y,y_FAST%Lin%Modules(MODULE_IfW)%Names_y )
+      if (allocated(InitOutData_IfW%LinNames_u)) call move_alloc(InitOutData_IfW%LinNames_u,y_FAST%Lin%Modules(MODULE_IfW)%Names_u )
+      if (allocated(InitOutData_IfW%RotFrame_y)) call move_alloc(InitOutData_IfW%RotFrame_y,y_FAST%Lin%Modules(MODULE_IfW)%RotFrame_y )
+      if (allocated(InitOutData_IfW%RotFrame_u)) call move_alloc(InitOutData_IfW%RotFrame_u,y_FAST%Lin%Modules(MODULE_IfW)%RotFrame_u )
+      
       IF (ErrStat >= AbortErrLev) THEN
          CALL Cleanup()
          RETURN
@@ -576,7 +598,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
       
    IF ( p_FAST%CompServo == Module_SrvD ) THEN
       InitInData_SrvD%InputFile     = p_FAST%ServoFile
-      InitInData_SrvD%RootName      = p_FAST%OutFileRoot
+      InitInData_SrvD%RootName      = TRIM(p_FAST%OutFileRoot)//'.'//TRIM(y_FAST%Module_Abrev(Module_SrvD))
       InitInData_SrvD%NumBl         = InitOutData_ED%NumBl
       InitInData_SrvD%gravity       = InitOutData_ED%gravity
       InitInData_SrvD%r_N_O_G       = ED%Input(1)%NacelleLoads%Position(:,1)
@@ -584,6 +606,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
       InitInData_SrvD%TMax          = p_FAST%TMax
       InitInData_SrvD%AirDens       = AirDens
       InitInData_SrvD%AvgWindSpeed  = InitOutData_IfW%WindFileInfo%MWS
+      InitInData_SrvD%Linearize     = p_FAST%Linearize
       
       IF ( PRESENT(ExternInitData) ) THEN
          InitInData_SrvD%NumSC2Ctrl = ExternInitData%NumSC2Ctrl
@@ -612,6 +635,11 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
       !CALL SrvD_CopyOutput( SrvD%y, SrvD%y_prev, MESH_NEWCOPY, ErrStat, ErrMsg)               
       !   
                   
+      if (allocated(InitOutData_SrvD%LinNames_y)) call move_alloc(InitOutData_SrvD%LinNames_y,y_FAST%Lin%Modules(MODULE_SrvD)%Names_y )
+      if (allocated(InitOutData_SrvD%LinNames_u)) call move_alloc(InitOutData_SrvD%LinNames_u,y_FAST%Lin%Modules(MODULE_SrvD)%Names_u )
+      if (allocated(InitOutData_SrvD%RotFrame_y)) call move_alloc(InitOutData_SrvD%RotFrame_y,y_FAST%Lin%Modules(MODULE_SrvD)%RotFrame_y )
+      if (allocated(InitOutData_SrvD%RotFrame_u)) call move_alloc(InitOutData_SrvD%RotFrame_u,y_FAST%Lin%Modules(MODULE_SrvD)%RotFrame_u )
+      
       IF (ErrStat >= AbortErrLev) THEN
          CALL Cleanup()
          RETURN
@@ -803,7 +831,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
    ELSEIF (p_FAST%CompMooring == Module_FEAM) THEN
             
       InitInData_FEAM%InputFile   = p_FAST%MooringFile         ! This needs to be set according to what is in the FAST input file. 
-      InitInData_FEAM%RootName    = p_FAST%OutFileRoot
+      InitInData_FEAM%RootName    = TRIM(p_FAST%OutFileRoot)//'.'//TRIM(y_FAST%Module_Abrev(Module_FEAM))
       
       InitInData_FEAM%PtfmInit    = InitOutData_ED%PlatformPos !ED%x(STATE_CURR)%QT(1:6)   ! initial position of the platform !bjj: this should come from InitOutData_ED, not x_ED
       InitInData_FEAM%NStepWave   = 1                          ! an arbitrary number > 0 (to set the size of the wave data, which currently contains all zero values)     
@@ -895,7 +923,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
    IF ( p_FAST%CompIce == Module_IceF ) THEN
                       
       InitInData_IceF%InputFile     = p_FAST%IceFile
-      InitInData_IceF%RootName      = p_FAST%OutFileRoot     
+      InitInData_IceF%RootName      = TRIM(p_FAST%OutFileRoot)//'.'//TRIM(y_FAST%Module_Abrev(Module_IceF))     
       InitInData_IceF%simLength     = p_FAST%TMax  !bjj: IceFloe stores this as single-precision (ReKi) TMax is DbKi
       InitInData_IceF%MSL2SWL       = InitOutData_HD%MSL2SWL
       InitInData_IceF%gravity       = InitOutData_ED%Gravity
@@ -918,7 +946,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
    ELSEIF ( p_FAST%CompIce == Module_IceD ) THEN  
       
       InitInData_IceD%InputFile     = p_FAST%IceFile
-      InitInData_IceD%RootName      = p_FAST%OutFileRoot     
+      InitInData_IceD%RootName      = TRIM(p_FAST%OutFileRoot)//'.'//TRIM(y_FAST%Module_Abrev(Module_IceD))//'1'     
       InitInData_IceD%MSL2SWL       = InitOutData_HD%MSL2SWL      
       InitInData_IceD%WtrDens       = InitOutData_HD%WtrDens    
       InitInData_IceD%gravity       = InitOutData_ED%Gravity
@@ -945,6 +973,7 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
 
       DO i=2,p_FAST%numIceLegs  ! basically, we just need IceDyn to set up its meshes for inputs/outputs and possibly initial values for states
          InitInData_IceD%LegNum = i
+         InitInData_IceD%RootName = TRIM(p_FAST%OutFileRoot)//'.'//TRIM(y_FAST%Module_Abrev(Module_IceD))//TRIM(Num2LStr(i))     
          
          CALL IceD_Init( InitInData_IceD, IceD%Input(1,i), IceD%p(i),  IceD%x(i,STATE_CURR), IceD%xd(i,STATE_CURR), IceD%z(i,STATE_CURR), &
                             IceD%OtherSt(i,STATE_CURR), IceD%y(i), IceD%m(i), dt_IceD, InitOutData_IceD, ErrStat2, ErrMsg2 )
@@ -986,6 +1015,19 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
          RETURN
       END IF      
       
+   ! -------------------------------------------------------------------------
+   ! Initialize for linearization:
+   ! -------------------------------------------------------------------------
+   if ( p_FAST%Linearize ) then      
+      call Init_Lin(p_FAST, y_FAST, m_FAST, AD, InitOutData_ED%NumBl, ErrStat2, ErrMsg2)      
+         call SetErrStat(ErrStat2,ErrMsg2,ErrStat,ErrMsg,RoutineName)
+
+         if (ErrStat >= AbortErrLev) then
+            call Cleanup()
+            return
+         end if      
+   end if
+   
       
    ! -------------------------------------------------------------------------
    ! Initialize data for VTK output
@@ -1008,7 +1050,8 @@ SUBROUTINE FAST_InitializeAll( t_initial, p_FAST, y_FAST, m_FAST, ED, BD, SrvD, 
    ! other misc variables initialized here:
    ! -------------------------------------------------------------------------
       
-   m_FAST%t_global   = t_initial
+   m_FAST%t_global        = t_initial
+   m_FAST%NextLinTimeIndx = 1 
          
    ! Initialize external inputs for first step  
    if ( p_FAST%CompServo == MODULE_SrvD ) then      
@@ -1269,6 +1312,22 @@ SUBROUTINE FAST_Init( p, y_FAST, t_initial, ErrStat, ErrMsg, InFile, TMax, TurbI
    y_FAST%Module_Ver( Module_IceF )%Name = 'IceFloe'
    y_FAST%Module_Ver( Module_IceD )%Name = 'IceDyn'
          
+   y_FAST%Module_Abrev( Module_IfW  ) = 'IfW'
+   y_FAST%Module_Abrev( Module_OpFM ) = 'OpFM'
+   y_FAST%Module_Abrev( Module_ED   ) = 'ED'
+   y_FAST%Module_Abrev( Module_BD   ) = 'BD'
+   y_FAST%Module_Abrev( Module_AD14 ) = 'AD'
+   y_FAST%Module_Abrev( Module_AD   ) = 'AD'
+   y_FAST%Module_Abrev( Module_SrvD ) = 'SrvD'
+   y_FAST%Module_Abrev( Module_HD   ) = 'HD'
+   y_FAST%Module_Abrev( Module_SD   ) = 'SD'
+   y_FAST%Module_Abrev( Module_MAP  ) = 'MAP'
+   y_FAST%Module_Abrev( Module_FEAM ) = 'FEAM'
+   y_FAST%Module_Abrev( Module_MD   ) = 'MD'
+   y_FAST%Module_Abrev( Module_Orca ) = 'Orca'
+   y_FAST%Module_Abrev( Module_IceF ) = 'IceF'
+   y_FAST%Module_Abrev( Module_IceD ) = 'IceD'   
+   
    p%n_substeps = 1                                                ! number of substeps for between modules and global/FAST time
          
    !...............................................................................................................................
@@ -1307,7 +1366,7 @@ SUBROUTINE FAST_Init( p, y_FAST, t_initial, ErrStat, ErrMsg, InFile, TMax, TurbI
    END IF   
          
     
-    p%n_TMax_m1  = CEILING( ( (p%TMax - t_initial) / p%DT ) ) - 1 ! We're going to go from step 0 to n_TMax (thus the -1 here)
+   p%n_TMax_m1  = CEILING( ( (p%TMax - t_initial) / p%DT ) ) - 1 ! We're going to go from step 0 to n_TMax (thus the -1 here)
 
    p%TChanLen = max( 10, int(log10(p%TMax))+7 )
    p%OutFmt_t = 'F'//trim(num2lstr( p%TChanLen ))//'.4' ! 'F10.4'    
@@ -1335,10 +1394,10 @@ SUBROUTINE ValidateInputData(p, ErrStat, ErrMsg)
 
    REAL(DbKi)                                      :: TmpTime           ! A temporary variable for error checking
    
+   INTEGER(IntKi)                                  :: i
    INTEGER(IntKi)                                  :: ErrStat2          
    CHARACTER(ErrMsgLen)                            :: ErrMsg2            
    CHARACTER(*), PARAMETER                         :: RoutineName='ValidateInputData'
-   INTEGER(IntKi)                                  :: FmtWidth          ! width of the field returned by the specified OutFmt
    
    ErrStat = ErrID_None
    ErrMsg  = ""
@@ -1366,11 +1425,11 @@ SUBROUTINE ValidateInputData(p, ErrStat, ErrMsg)
    END IF
 
       ! Check that InputFileData%OutFmt is a valid format specifier and will fit over the column headings
-   CALL ChkRealFmtStr( p%OutFmt, 'OutFmt', FmtWidth, ErrStat2, ErrMsg2 )
+   CALL ChkRealFmtStr( p%OutFmt, 'OutFmt', p%FmtWidth, ErrStat2, ErrMsg2 )
       call SetErrStat(ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
 
-   IF ( FmtWidth /= ChanLen ) CALL SetErrStat( ErrID_Warn, 'OutFmt produces a column width of '// &
-         TRIM(Num2LStr(FmtWidth))//' instead of '//TRIM(Num2LStr(ChanLen))//' characters.', ErrStat, ErrMsg, RoutineName )
+   IF ( p%FmtWidth /= ChanLen ) CALL SetErrStat( ErrID_Warn, 'OutFmt produces a column width of '// &
+         TRIM(Num2LStr(p%FmtWidth))//' instead of '//TRIM(Num2LStr(ChanLen))//' characters.', ErrStat, ErrMsg, RoutineName )
    
    IF ( p%WrTxtOutFile .AND. p%TChanLen > ChanLen  )  THEN ! ( p%TMax > 9999.999_DbKi )
       CALL SetErrStat( ErrID_Warn, 'TMax is too large for a 10-character time column in text tabular (time-marching) output files.'// &
@@ -1432,7 +1491,34 @@ SUBROUTINE ValidateInputData(p, ErrStat, ErrMsg)
    end if
 
       
-   
+   if (p%Linearize) then
+      if (p%LinTimes(1) < 0) call SetErrStat(ErrID_Fatal,'LinTimes must be positive values.',ErrStat, ErrMsg, RoutineName)
+      do i=2,size(p%LinTimes)
+         if (p%LinTimes(i) < 0) call SetErrStat(ErrID_Fatal,'LinTimes must be positive values.',ErrStat, ErrMsg, RoutineName)
+         if (p%LinTimes(i) <= p%LinTimes(i-1)) call SetErrStat(ErrID_Fatal,'LinTimes must be unique values entered in increasing order.',ErrStat, ErrMsg, RoutineName)
+      end do
+      
+      if (p%LinInputs < LIN_NONE .or. p%LinInputs > LIN_ALL) call SetErrStat(ErrID_Fatal,'LinInputs must be 0, 1, or 2.',ErrStat, ErrMsg, RoutineName)
+      if (p%LinOutputs < LIN_NONE .or. p%LinOutputs > LIN_ALL) call SetErrStat(ErrID_Fatal,'LinOutputs must be 0, 1, or 2.',ErrStat, ErrMsg, RoutineName)
+      
+      if (p%LinOutJac) then
+         if ( p%LinInputs /= LIN_ALL .or. p%LinOutputs /= LIN_ALL) then
+            call SetErrStat(ErrID_Info,'LinOutJac can be used only when LinInputs=LinOutputs=2.',ErrStat, ErrMsg, RoutineName)
+            p%LinOutJac = .false.
+         end if
+      end if
+      
+      ! now, make sure we haven't asked for any modules that we can't yet linearize:
+      if (p%CompElast == Module_BD) call SetErrStat(ErrID_Fatal,'Linearization is not implemented for the BeamDyn module.',ErrStat, ErrMsg, RoutineName)
+      if (p%CompInflow == MODULE_OpFM) call SetErrStat(ErrID_Fatal,'Linearization is not implemented for the OpenFOAM coupling.',ErrStat, ErrMsg, RoutineName)
+      if (p%CompAero == MODULE_AD14) call SetErrStat(ErrID_Fatal,'Linearization is not implemented for the AeroDyn v14 module.',ErrStat, ErrMsg, RoutineName)
+      if (p%CompHydro == MODULE_HD) call SetErrStat(ErrID_Fatal,'Linearization is not implemented for the HydroDyn module.',ErrStat, ErrMsg, RoutineName)
+      if (p%CompSub == MODULE_SD) call SetErrStat(ErrID_Fatal,'Linearization is not implemented for the SubDyn module.',ErrStat, ErrMsg, RoutineName)
+      if (p%CompMooring /= MODULE_None) call SetErrStat(ErrID_Fatal,'Linearization is not implemented for any of the mooring modules.',ErrStat, ErrMsg, RoutineName)
+      if (p%CompIce /= MODULE_None) call SetErrStat(ErrID_Fatal,'Linearization is not implemented for any of the ice loading modules.',ErrStat, ErrMsg, RoutineName)
+                  
+   end if
+      
    !...............................................................................................................................
 
       ! temporary check on p_FAST%DT_out (bjj: fix this later?)
@@ -1816,6 +1902,7 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
    INTEGER(IntKi)                :: IOS                                       ! Temporary Error status
    INTEGER(IntKi)                :: ErrStat2                                  ! Temporary Error status
    INTEGER(IntKi)                :: OutFileFmt                                ! An integer that indicates what kind of tabular output should be generated (1=text, 2=binary, 3=both)
+   INTEGER(IntKi)                :: NLinTimes                                 ! An integer that indicates how many times to linearize
    LOGICAL                       :: Echo                                      ! Determines if an echo file should be written
    LOGICAL                       :: TabDelim                                  ! Determines if text output should be delimited by tabs (true) or space (false)
    CHARACTER(ErrMsgLen)          :: ErrMsg2                                   ! Temporary Error message
@@ -1824,6 +1911,8 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
    CHARACTER(10)                 :: AbortLevel                                ! String that indicates which error level should be used to abort the program: WARNING, SEVERE, or FATAL
    CHARACTER(30)                 :: Line                                      ! string for default entry in input file
 
+   CHARACTER(*),   PARAMETER     :: RoutineName = 'FAST_ReadPrimaryFile'
+   
 
       ! Initialize some variables:
    UnEc = -1
@@ -1840,8 +1929,11 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
       ! Open the Primary input file.
 
    CALL OpenFInpFile ( UnIn, InputFile, ErrStat2, ErrMsg2 )
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2,ErrStat,ErrMsg,RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
 
    ! Read the lines up/including to the "Echo" simulation control variable
@@ -1853,24 +1945,36 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
    !-------------------------- HEADER ---------------------------------------------
 
       CALL ReadCom( UnIn, InputFile, 'File header: Module Version (line 1)', ErrStat2, ErrMsg2, UnEc )
-         CALL CheckError( ErrStat2, ErrMsg2 )
-         IF ( ErrStat >= AbortErrLev ) RETURN
+         CALL SetErrStat( ErrStat2, ErrMsg2,ErrStat,ErrMsg,RoutineName)
+         if ( ErrStat >= AbortErrLev ) then
+            call cleanup()
+            RETURN        
+         end if
 
       CALL ReadStr( UnIn, InputFile, p%FTitle, 'FTitle', 'File Header: File Description (line 2)', ErrStat2, ErrMsg2, UnEc )
-         CALL CheckError( ErrStat2, ErrMsg2 )
-         IF ( ErrStat >= AbortErrLev ) RETURN
+         CALL SetErrStat( ErrStat2, ErrMsg2,ErrStat,ErrMsg,RoutineName)
+         if ( ErrStat >= AbortErrLev ) then
+            call cleanup()
+            RETURN        
+         end if
 
 
    !---------------------- SIMULATION CONTROL --------------------------------------
       CALL ReadCom( UnIn, InputFile, 'Section Header: Simulation Control', ErrStat2, ErrMsg2, UnEc )
-         CALL CheckError( ErrStat2, ErrMsg2 )
-         IF ( ErrStat >= AbortErrLev ) RETURN
+         CALL SetErrStat( ErrStat2, ErrMsg2,ErrStat,ErrMsg,RoutineName)
+         if ( ErrStat >= AbortErrLev ) then
+            call cleanup()
+            RETURN        
+         end if
 
 
          ! Echo - Echo input data to <RootName>.ech (flag):
       CALL ReadVar( UnIn, InputFile, Echo, "Echo", "Echo input data to <RootName>.ech (flag)", ErrStat2, ErrMsg2, UnEc)
-         CALL CheckError( ErrStat2, ErrMsg2 )
-         IF ( ErrStat >= AbortErrLev ) RETURN
+         CALL SetErrStat( ErrStat2, ErrMsg2,ErrStat,ErrMsg,RoutineName)
+         if ( ErrStat >= AbortErrLev ) then
+            call cleanup()
+            RETURN        
+         end if
 
 
       IF (.NOT. Echo .OR. I > 1) EXIT !exit this loop
@@ -1880,15 +1984,19 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
       I = I + 1         ! make sure we do this only once (increment counter that says how many times we've read this file)
 
       CALL OpenEcho ( UnEc, TRIM(p%OutFileRoot)//'.ech', ErrStat2, ErrMsg2, FAST_Ver )
-         CALL CheckError( ErrStat2, ErrMsg2 )
-         IF ( ErrStat >= AbortErrLev ) RETURN
+         CALL SetErrStat( ErrStat2, ErrMsg2,ErrStat,ErrMsg,RoutineName)
+         if ( ErrStat >= AbortErrLev ) then
+            call cleanup()
+            RETURN        
+         end if
 
       IF ( UnEc > 0 )  WRITE (UnEc,'(/,A,/)')  'Data from '//TRIM(FAST_Ver%Name)//' primary input file "'//TRIM( InputFile )//'":'
 
       REWIND( UnIn, IOSTAT=ErrStat2 )
          IF (ErrStat2 /= 0_IntKi ) THEN
-            CALL CheckError( ErrID_Fatal, 'Error rewinding file "'//TRIM(InputFile)//'".' )
-            IF ( ErrStat >= AbortErrLev ) RETURN
+            CALL SetErrStat( ErrID_Fatal, 'Error rewinding file "'//TRIM(InputFile)//'".',ErrStat,ErrMsg,RoutineName)
+            call cleanup()
+            RETURN        
          END IF
 
    END DO
@@ -1900,8 +2008,11 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
       ! AbortLevel - Error level when simulation should abort:
    CALL ReadVar( UnIn, InputFile, AbortLevel, "AbortLevel", "Error level when simulation should abort (string)", &
                         ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2,ErrStat,ErrMsg,RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! Let's set the abort level here.... knowing that everything before this aborted only on FATAL errors!
       CALL Conv2UC( AbortLevel ) !convert to upper case
@@ -1913,25 +2024,33 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
          CASE ( "FATAL" )
             AbortErrLev = ErrID_Fatal
          CASE DEFAULT
-            CALL CheckError( ErrID_Fatal, 'Invalid AbortLevel specified in FAST input file. '// &
-                                 'Valid entries are "WARNING", "SEVERE", or "FATAL".' )
+            CALL SetErrStat( ErrID_Fatal, 'Invalid AbortLevel specified in FAST input file. '// &
+                             'Valid entries are "WARNING", "SEVERE", or "FATAL".',ErrStat,ErrMsg,RoutineName)
+            call cleanup()
             RETURN
       END SELECT
 
 
       ! TMax - Total run time (s):
    CALL ReadVar( UnIn, InputFile, p%TMax, "TMax", "Total run time (s)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
-
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
       ! DT - Recommended module time step (s):
    CALL ReadVar( UnIn, InputFile, p%DT, "DT", "Recommended module time step (s)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
       
       if ( EqualRealNos(p%DT, 0.0_DbKi) ) then
          ! add a fatal error here because we're going to divide by DT later in this routine:
-         call CheckError(ErrID_Fatal,'DT cannot be zero.')
+         CALL SetErrStat( ErrID_Fatal, 'DT cannot be zero.', ErrStat, ErrMsg, RoutineName)
+         call cleanup()
          return
       end if
       
@@ -1939,34 +2058,53 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
       ! InterpOrder - Interpolation order for inputs and outputs {0=nearest neighbor ,1=linear, 2=quadratic}
    CALL ReadVar( UnIn, InputFile, p%InterpOrder, "InterpOrder", "Interpolation order "//&
                    "for inputs and outputs {0=nearest neighbor ,1=linear, 2=quadratic} (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! NumCrctn - Number of predictor-corrector iterations {1=explicit calculation, i.e., no corrections}
    CALL ReadVar( UnIn, InputFile, p%NumCrctn, "NumCrctn", "Number of corrections"//&
                    "{0=explicit calculation, i.e., no corrections} (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! DT_UJac - Time between calls to get Jacobians (s)
    CALL ReadVar( UnIn, InputFile, p%DT_UJac, "DT_UJac", "Time between calls to get Jacobians (s)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! UJacSclFact - Scaling factor used in Jacobians (-)
    CALL ReadVar( UnIn, InputFile, p%UJacSclFact, "UJacSclFact", "Scaling factor used in Jacobians (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN              
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
                   
    !---------------------- FEATURE SWITCHES AND FLAGS --------------------------------
    CALL ReadCom( UnIn, InputFile, 'Section Header: Feature Switches and Flags', ErrStat2, ErrMsg2, UnEc )
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! CompElast - Compute structural dynamics (switch) {1=ElastoDyn; 2=ElastoDyn + BeamDyn for blades}:
    CALL ReadVar( UnIn, InputFile, p%CompElast, "CompElast", "Compute structural dynamics (switch) {1=ElastoDyn; 2=ElastoDyn + BeamDyn for blades}", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
           ! immediately convert to values used inside the code:
          IF ( p%CompElast == 1 ) THEN 
             p%CompElast = Module_ED
@@ -1978,8 +2116,12 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
                                   
       ! CompInflow - inflow wind velocities (switch) {0=still air; 1=InflowWind}:
    CALL ReadVar( UnIn, InputFile, p%CompInflow, "CompInflow", "inflow wind velocities (switch) {0=still air; 1=InflowWind}", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
           ! immediately convert to values used inside the code:
          IF ( p%CompInflow == 0 ) THEN 
             p%CompInflow = Module_NONE
@@ -1993,8 +2135,12 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
 
       ! CompAero - Compute aerodynamic loads (switch) {0=None; 1=AeroDyn}:
    CALL ReadVar( UnIn, InputFile, p%CompAero, "CompAero", "Compute aerodynamic loads (switch) {0=None; 1=AeroDyn}", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
           ! immediately convert to values used inside the code:
          IF ( p%CompAero == 0 ) THEN 
             p%CompAero = Module_NONE
@@ -2008,8 +2154,12 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
 
       ! CompServo - Compute control and electrical-drive dynamics (switch) {0=None; 1=ServoDyn}:
    CALL ReadVar( UnIn, InputFile, p%CompServo, "CompServo", "Compute control and electrical-drive dynamics (switch) {0=None; 1=ServoDyn}", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
           ! immediately convert to values used inside the code:
          IF ( p%CompServo == 0 ) THEN 
             p%CompServo = Module_NONE
@@ -2022,8 +2172,12 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
       
       ! CompHydro - Compute hydrodynamic loads (switch) {0=None; 1=HydroDyn}:
    CALL ReadVar( UnIn, InputFile, p%CompHydro, "CompHydro", "Compute hydrodynamic loads (switch) {0=None; 1=HydroDyn}", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
           ! immediately convert to values used inside the code:
          IF ( p%CompHydro == 0 ) THEN 
             p%CompHydro = Module_NONE
@@ -2035,8 +2189,12 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
          
       ! CompSub - Compute sub-structural dynamics (switch) {0=None; 1=SubDyn}:
    CALL ReadVar( UnIn, InputFile, p%CompSub, "CompSub", "Compute sub-structural dynamics (switch) {0=None; 1=SubDyn}", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
           ! immediately convert to values used inside the code:
          IF ( p%CompSub == 0 ) THEN 
             p%CompSub = Module_NONE
@@ -2048,8 +2206,12 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
          
       ! CompMooring - Compute mooring line dynamics (flag):
    CALL ReadVar( UnIn, InputFile, p%CompMooring, "CompMooring", "Compute mooring system (switch) {0=None; 1=MAP; 2=FEAMooring; 3=MoorDyn; 4=OrcaFlex}", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN         
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
           ! immediately convert to values used inside the code:
          IF ( p%CompMooring == 0 ) THEN 
             p%CompMooring = Module_NONE
@@ -2067,8 +2229,12 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
       
       ! CompIce - Compute ice loads (switch) {0=None; 1=IceFloe}:
    CALL ReadVar( UnIn, InputFile, p%CompIce, "CompIce", "Compute ice loads (switch) {0=None; 1=IceFloe}", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
           ! immediately convert to values used inside the code:
          IF ( p%CompIce == 0 ) THEN 
             p%CompIce = Module_NONE
@@ -2083,80 +2249,120 @@ SUBROUTINE FAST_ReadPrimaryFile( InputFile, p, ErrStat, ErrMsg )
 
    !---------------------- INPUT FILES ---------------------------------------------
    CALL ReadCom( UnIn, InputFile, 'Section Header: Input Files', ErrStat2, ErrMsg2, UnEc )
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! EDFile - Name of file containing ElastoDyn input parameters (-):
    CALL ReadVar( UnIn, InputFile, p%EDFile, "EDFile", "Name of file containing ElastoDyn input parameters (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
    IF ( PathIsRelative( p%EDFile ) ) p%EDFile = TRIM(PriPath)//TRIM(p%EDFile)
 
 DO i=1,MaxNBlades
       ! BDBldFile - Name of file containing BeamDyn blade input parameters (-):
    CALL ReadVar( UnIn, InputFile, p%BDBldFile(i), "BDBldFile("//TRIM(num2LStr(i))//")", "Name of file containing BeamDyn blade "//trim(num2lstr(i))//"input parameters (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
    IF ( PathIsRelative( p%BDBldFile(i) ) ) p%BDBldFile(i) = TRIM(PriPath)//TRIM(p%BDBldFile(i))
 END DO
    
       ! InflowFile - Name of file containing inflow wind input parameters (-):
    CALL ReadVar( UnIn, InputFile, p%InflowFile, "InflowFile", "Name of file containing inflow wind input parameters (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
    IF ( PathIsRelative( p%InflowFile ) ) p%InflowFile = TRIM(PriPath)//TRIM(p%InflowFile)
 
       ! AeroFile - Name of file containing aerodynamic input parameters (-):
    CALL ReadVar( UnIn, InputFile, p%AeroFile, "AeroFile", "Name of file containing aerodynamic input parameters (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
    IF ( PathIsRelative( p%AeroFile ) ) p%AeroFile = TRIM(PriPath)//TRIM(p%AeroFile)
 
       ! ServoFile - Name of file containing control and electrical-drive input parameters (-):
    CALL ReadVar( UnIn, InputFile, p%ServoFile, "ServoFile", "Name of file containing control and electrical-drive input parameters (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
    IF ( PathIsRelative( p%ServoFile ) ) p%ServoFile = TRIM(PriPath)//TRIM(p%ServoFile)
 
       ! HydroFile - Name of file containing hydrodynamic input parameters (-):
    CALL ReadVar( UnIn, InputFile, p%HydroFile, "HydroFile", "Name of file containing hydrodynamic input parameters (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
    IF ( PathIsRelative( p%HydroFile ) ) p%HydroFile = TRIM(PriPath)//TRIM(p%HydroFile)
 
       ! SubFile - Name of file containing sub-structural input parameters (-):
    CALL ReadVar( UnIn, InputFile, p%SubFile, "SubFile", "Name of file containing sub-structural input parameters (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
    IF ( PathIsRelative( p%SubFile ) ) p%SubFile = TRIM(PriPath)//TRIM(p%SubFile)
 
       ! MooringFile - Name of file containing mooring system input parameters (-):
    CALL ReadVar( UnIn, InputFile, p%MooringFile, "MooringFile", "Name of file containing mooring system input parameters (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
    IF ( PathIsRelative( p%MooringFile ) ) p%MooringFile = TRIM(PriPath)//TRIM(p%MooringFile)
   
       ! IceFile - Name of file containing ice input parameters (-):
    CALL ReadVar( UnIn, InputFile, p%IceFile, "IceFile", "Name of file containing ice input parameters (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
    IF ( PathIsRelative( p%IceFile ) ) p%IceFile = TRIM(PriPath)//TRIM(p%IceFile)
    
    
    !---------------------- OUTPUT --------------------------------------------------
    CALL ReadCom( UnIn, InputFile, 'Section Header: Output', ErrStat2, ErrMsg2, UnEc )
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! SumPrint - Print summary data to <RootName>.sum (flag):
    CALL ReadVar( UnIn, InputFile, p%SumPrint, "SumPrint", "Print summary data to <RootName>.sum (flag)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! SttsTime - Amount of time between screen status messages (s):
    CALL ReadVar( UnIn, InputFile, TmpTime, "SttsTime", "Amount of time between screen status messages (s)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN   
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
       IF (TmpTime > p%TMax) THEN
          p%n_SttsTime = HUGE(p%n_SttsTime)
       ELSE         
@@ -2165,8 +2371,12 @@ END DO
 
       ! ChkptTime - Amount of time between creating checkpoint files for potential restart (s):
    CALL ReadVar( UnIn, InputFile, TmpTime, "ChkptTime", "Amount of time between creating checkpoint files for potential restart (s)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN        
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
       IF (TmpTime > p%TMax) THEN
          p%n_ChkptTime = HUGE(p%n_ChkptTime)
       ELSE         
@@ -2176,8 +2386,12 @@ END DO
       ! DT_Out - Time step for tabular output (s):
    CALL ReadVar( UnIn, InputFile, Line, "DT_Out", "Time step for tabular output (s)", ErrStat2, ErrMsg2, UnEc)
    !CALL ReadVar( UnIn, InputFile, p%DT_Out, "DT_Out", "Time step for tabular output (s)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
       CALL Conv2UC( Line )
       IF ( INDEX(Line, "DEFAULT" ) == 1 ) THEN 
          p%DT_Out = p%DT
@@ -2185,18 +2399,28 @@ END DO
          ! If it's not "default", read this variable; otherwise use the value already stored in InputFileData%DTBeam
          READ( Line, *, IOSTAT=IOS) p%DT_Out
             CALL CheckIOS ( IOS, InputFile, 'DT_Out', NumType, ErrStat2, ErrMsg2 )
-            CALL CheckError( ErrStat2, ErrMsg2 )
+            CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+            if ( ErrStat >= AbortErrLev ) then
+               call cleanup()
+               RETURN        
+            end if
       END IF
           
       ! TStart - Time to begin tabular output (s):
    CALL ReadVar( UnIn, InputFile, p%TStart, "TStart", "Time to begin tabular output (s)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! OutFileFmt - Format for tabular (time-marching) output file(s) (1: text file [<RootName>.out], 2: binary file [<RootName>.outb], 3: both) (-):
    CALL ReadVar( UnIn, InputFile, OutFileFmt, "OutFileFmt", "Format for tabular (time-marching) output file(s) (1: text file [<RootName>.out], 2: binary file [<RootName>.outb], 3: both) (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       SELECT CASE (OutFileFmt)
          CASE (1_IntKi)
@@ -2209,14 +2433,20 @@ END DO
             p%WrBinOutFile = .TRUE.
             p%WrTxtOutFile = .TRUE.
          CASE DEFAULT
-           CALL CheckError( ErrID_Fatal, " FAST's OutFileFmt must be 1, 2, or 3." )
-           RETURN
+            CALL SetErrStat( ErrID_Fatal, "FAST's OutFileFmt must be 1, 2, or 3.",ErrStat,ErrMsg,RoutineName)
+            if ( ErrStat >= AbortErrLev ) then
+               call cleanup()
+               RETURN        
+            end if
       END SELECT
 
       ! TabDelim - Use tab delimiters in text tabular output file? (flag):
    CALL ReadVar( UnIn, InputFile, TabDelim, "TabDelim", "Use tab delimiters in text tabular output file? (flag)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       IF ( TabDelim ) THEN
          p%Delim = TAB
@@ -2226,18 +2456,101 @@ END DO
 
       ! OutFmt - Format used for text tabular output (except time).  Resulting field should be 10 characters. (-):
    CALL ReadVar( UnIn, InputFile, p%OutFmt, "OutFmt", "Format used for text tabular output (except time).  Resulting field should be 10 characters. (-)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
+      
+   !---------------------- LINEARIZATION -----------------------------------------------
+   CALL ReadCom( UnIn, InputFile, 'Section Header: Linearization', ErrStat2, ErrMsg2, UnEc )
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+
+      
+      ! Linearize - Linearization analysis (flag)
+   CALL ReadVar( UnIn, InputFile, p%Linearize, "Linearize", "Linearization analysis (flag)", ErrStat2, ErrMsg2, UnEc)
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if      
+      
+      ! NLinTimes - Number of times to linearize (-) [>=1]
+   CALL ReadVar( UnIn, InputFile, NLinTimes, "NLinTimes", "Number of times to linearize (-) [>=1]", ErrStat2, ErrMsg2, UnEc)
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
+         ! LinTimes - Times to linearize (s) [1 to NLinTimes]
+   if (NLinTimes >= 1) then
+      call AllocAry( p%LinTimes, NLinTimes, 'p%LinTimes', ErrStat2, ErrMsg2 )
+         CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+         if (ErrStat < AbortErrLev) then
+            CALL ReadAry( UnIn, InputFile, p%LinTimes, NLinTimes, "LinTimes", "Times to linearize (s) [1 to NLinTimes]", ErrStat2, ErrMsg2, UnEc)         
+         end if         
+   else
+      CALL ReadCom( UnIn, InputFile, 'Times to linearize (s) [1 to NLinTimes] ', ErrStat2, ErrMsg2, UnEc )
+   end if
+   CALL SetErrStat( ErrStat2, ErrMsg2,ErrStat,ErrMsg,RoutineName)
+   if ( ErrStat >= AbortErrLev ) then
+      call cleanup()
+      RETURN        
+   end if
+   
+      ! LinInputs - Include inputs in linearization (switch) {0=none; 1=standard; 2=all module inputs (debug)}
+   CALL ReadVar( UnIn, InputFile, p%LinInputs, "LinInputs", "Include inputs in linearization (switch) {0=none; 1=standard; 2=all module inputs (debug)}", ErrStat2, ErrMsg2, UnEc)
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+
+      ! LinOutputs - Include outputs in linearization (switch) (0=none; 1=from OutList(s); 2=all module outputs (debug))
+   CALL ReadVar( UnIn, InputFile, p%LinOutputs, "LinOutputs", "Include outputs in linearization (switch) (0=none; 1=from OutList(s); 2=all module outputs (debug))", ErrStat2, ErrMsg2, UnEc)
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+
+      ! LinOutJac - Include full Jacabians in linearization output (for debug) (flag)
+   CALL ReadVar( UnIn, InputFile, p%LinOutJac, "LinOutJac", "Include full Jacabians in linearization output (for debug) (flag)", ErrStat2, ErrMsg2, UnEc)
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
+      ! LinOutMod - Write module-level linearization output files in addition to output for full system? (flag)
+   CALL ReadVar( UnIn, InputFile, p%LinOutMod, "LinOutMod", "Write module-level linearization output files in addition to output for full system? (flag)", ErrStat2, ErrMsg2, UnEc)
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
    !---------------------- VISUALIZATION -----------------------------------------------
    CALL ReadCom( UnIn, InputFile, 'Section Header: Visualization', ErrStat2, ErrMsg2, UnEc )
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
 
       ! WrVTK - VTK Visualization data output: (switch) {0=none; 1=initialization data only; 2=animation}:
    CALL ReadVar( UnIn, InputFile, p%WrVTK, "WrVTK", "Write VTK visualization files (0=none; 1=initialization data only; 2=animation)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
       
       IF ( p%WrVTK < 0 .OR. p%WrVTK > 2 ) THEN 
          p%WrVTK = VTK_Unknown
@@ -2245,8 +2558,11 @@ END DO
       
       ! VTK_Type - Type of  VTK visualization data: (switch) {1=surfaces; 2=basic meshes (lines/points); 3=all meshes (debug)}:
    CALL ReadVar( UnIn, InputFile, p%VTK_Type, "VTK_Type", "Type of  VTK visualization data: (1=surfaces; 2=basic meshes (lines/points); 3=all meshes)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
             
           ! immediately convert to values used inside the code:
          IF ( p%VTK_Type == 0 ) THEN 
@@ -2270,13 +2586,20 @@ END DO
          
       ! VTK_fields - Write mesh fields to VTK data files? (flag) {true/false}:
    CALL ReadVar( UnIn, InputFile, p%VTK_fields, "VTK_fields", "Write mesh fields to VTK data files? (flag)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
       
       ! VTK_fps - Frame rate for VTK output (frames per second) {will use closest integer multiple of DT} 
    CALL ReadVar( UnIn, InputFile, VTK_fps, "VTK_fps", "Frame rate for VTK output(fps)", ErrStat2, ErrMsg2, UnEc)
-      CALL CheckError( ErrStat2, ErrMsg2 )
-      IF ( ErrStat >= AbortErrLev ) RETURN        
+      CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName)
+      if ( ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN        
+      end if
+      
     
       ! convert frames-per-second to seconds per sample:
       if ( EqualRealNos(VTK_fps, 0.0_DbKi) ) then
@@ -2290,12 +2613,12 @@ END DO
          p%n_VTKTime = HUGE(p%n_VTKTime)
       ELSE         
          p%n_VTKTime = NINT( TmpTime / p%DT )
-         ! I'll warn if p%n_VTKTime*p%DT is necessarially TmpTime 
+         ! I'll warn if p%n_VTKTime*p%DT is not TmpTime 
          IF (p%WrVTK > VTK_None) THEN
             TmpRate = p%n_VTKTime*p%DT
             if (.not. EqualRealNos(TmpRate, TmpTime)) then
-               call CheckError(ErrID_Info, '1/VTK_fps is not an integer multiple of DT. FAST will output VTK information at '//&
-                              trim(num2lstr(1.0_DbKi/TmpRate))//' fps, the closest rate possible.')
+               call SetErrStat(ErrID_Info, '1/VTK_fps is not an integer multiple of DT. FAST will output VTK information at '//&
+                              trim(num2lstr(1.0_DbKi/TmpRate))//' fps, the closest rate possible.',ErrStat,ErrMsg,RoutineName)
             end if            
          END IF
                   
@@ -2305,40 +2628,15 @@ END DO
       
    !---------------------- END OF FILE -----------------------------------------
 
-   CLOSE ( UnIn )
-   IF ( UnEc > 0 ) CLOSE ( UnEc )
+   call cleanup()
    RETURN
-
 
 CONTAINS
    !...............................................................................................................................
-   SUBROUTINE CheckError(ErrID,Msg)
-   ! This subroutine sets the error message and level
-   !...............................................................................................................................
-
-         ! Passed arguments
-      INTEGER(IntKi), INTENT(IN) :: ErrID       ! The error identifier (ErrStat)
-      CHARACTER(*),   INTENT(IN) :: Msg         ! The error message (ErrMsg)
-
-      CHARACTER(*),   PARAMETER  :: RoutineName = 'FAST_ReadPrimaryFile'
-
-      !............................................................................................................................
-      ! Set error status/message;
-      !............................................................................................................................
-
-      CALL SetErrStat( ErrID, Msg, ErrStat, ErrMsg, RoutineName )      
-
-         !.........................................................................................................................
-         ! Clean up if we're going to return on error: close file, deallocate local arrays
-         !.........................................................................................................................
-         IF ( ErrStat >= AbortErrLev ) THEN
-            CLOSE( UnIn )
-            IF ( UnEc > 0 ) CLOSE ( UnEc )
-         END IF
-
-
-
-   END SUBROUTINE CheckError
+   subroutine cleanup()
+      CLOSE( UnIn )
+      IF ( UnEc > 0 ) CLOSE ( UnEc )   
+   end subroutine cleanup
    !...............................................................................................................................
 END SUBROUTINE FAST_ReadPrimaryFile
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -2691,7 +2989,7 @@ SUBROUTINE WrVTK_Ground ( RefPoint, HalfLengths, FileRootName, ErrStat, ErrMsg )
 
    ! local variables
    INTEGER(IntKi)                        :: Un            ! fortran unit number
-   INTEGER(IntKi)                        :: iy, ix        ! loop counters
+   INTEGER(IntKi)                        :: ix            ! loop counters
    CHARACTER(1024)                       :: FileName
    INTEGER(IntKi), parameter             :: NumberOfPoints = 4
    INTEGER(IntKi), parameter             :: NumberOfLines = 0
@@ -3044,12 +3342,12 @@ SUBROUTINE FAST_WrSum( p_FAST, y_FAST, MeshMapData, ErrStat, ErrMsg )
       WRITE (y_FAST%UnSum, Fmt ) "FAST output files", p_FAST%DT_out, NINT( p_FAST%DT_out / p_FAST%DT ),"^-1"
    END IF
 
-   IF (p_FAST%WrVTK /= VTK_None) THEN
+   IF (p_FAST%WrVTK == VTK_Animate) THEN
       
-      TmpRate = p_FAST%DT_out*p_FAST%n_VTKTime
+      TmpRate = p_FAST%DT*p_FAST%n_VTKTime
       
       IF ( p_FAST%n_VTKTime == 1_IntKi ) THEN
-         WRITE (y_FAST%UnSum, Fmt ) "VTK output files ", p_FAST%DT_out, 1_IntKi   ! we'll write "1" instead of "1^-1"
+         WRITE (y_FAST%UnSum, Fmt ) "VTK output files ", p_FAST%DT, 1_IntKi   ! we'll write "1" instead of "1^-1"
       ELSE
          WRITE (y_FAST%UnSum, Fmt ) "VTK output files ", TmpRate, p_FAST%n_VTKTime,"^-1"
       END IF
@@ -4370,9 +4668,14 @@ SUBROUTINE WrVTK_AllMeshes(p_FAST, y_FAST, MeshMapData, ED, BD, AD14, AD, IfW, O
             ! BeamDyn inputs
          !call MeshWrVTK(p_FAST%TurbinePos, BD%Input(1,k)%RootMotion, trim(p_FAST%OutFileRoot)//'.BD_RootMotion'//trim(num2lstr(k)), y_FAST%VTK_count, p_FAST%VTK_fields, ErrStat2, ErrMsg2 )
          call MeshWrVTK(p_FAST%TurbinePos, BD%Input(1,k)%HubMotion, trim(p_FAST%OutFileRoot)//'.BD_HubMotion'//trim(num2lstr(k)), y_FAST%VTK_count, p_FAST%VTK_fields, ErrStat2, ErrMsg2 )    
-         call MeshWrVTK(p_FAST%TurbinePos, BD%Input(1,k)%DistrLoad, trim(p_FAST%OutFileRoot)//'.BD_DistrLoad'//trim(num2lstr(k)), y_FAST%VTK_count, p_FAST%VTK_fields, ErrStat2, ErrMsg2, MeshMapData%y_BD_BldMotion_4Loads(k) )
-         ! skipping PointLoad
       end do
+      if (allocated(MeshMapData%y_BD_BldMotion_4Loads)) then
+         do K=1,NumBl 
+            call MeshWrVTK(p_FAST%TurbinePos, BD%Input(1,k)%DistrLoad, trim(p_FAST%OutFileRoot)//'.BD_DistrLoad'//trim(num2lstr(k)), y_FAST%VTK_count, p_FAST%VTK_fields, ErrStat2, ErrMsg2, MeshMapData%y_BD_BldMotion_4Loads(k) )
+            ! skipping PointLoad
+         end do
+      end if
+      
       
       do K=1,NumBl        
             ! BeamDyn outputs
@@ -4727,7 +5030,7 @@ SUBROUTINE WrVTK_WaveElev(t_global, p_FAST, y_FAST, HD)
 
    ! local variables
    INTEGER(IntKi)                        :: Un                    ! fortran unit number
-   INTEGER(IntKi)                        :: n, iy, ix, it         ! loop counters
+   INTEGER(IntKi)                        :: n, iy, ix             ! loop counters
    REAL(SiKi)                            :: t
    CHARACTER(1024)                       :: FileName
    INTEGER(IntKi)                        :: NumberOfPoints 
@@ -5025,7 +5328,95 @@ SUBROUTINE WriteMotionMeshesToFile(time, y_ED, u_SD, y_SD, u_HD, u_MAP, y_BD, u_
 END SUBROUTINE WriteMotionMeshesToFile   
 !----------------------------------------------------------------------------------------------------------------------------------
 
+   
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! Linerization routines   
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!> Routine that calls FAST_Linearize_T for an array of Turbine data structures if the linearization flag is set for each individual turbine. 
+SUBROUTINE FAST_Linearize_Tary(t_initial, n_t_global, Turbine, ErrStat, ErrMsg)
 
+   REAL(DbKi),               INTENT(IN   ) :: t_initial           !< initial simulation time (almost always 0)
+   INTEGER(IntKi),           INTENT(IN   ) :: n_t_global          !< integer time step   
+   TYPE(FAST_TurbineType),   INTENT(INOUT) :: Turbine(:)          !< all data for one instance of a turbine
+   INTEGER(IntKi),           INTENT(  OUT) :: ErrStat             !< Error status of the operation
+   CHARACTER(*),             INTENT(  OUT) :: ErrMsg              !< Error message if ErrStat /= ErrID_None
+
+      ! local variables
+   INTEGER(IntKi)                          :: i_turb, NumTurbines
+   INTEGER(IntKi)                          :: ErrStat2            ! local error status
+   CHARACTER(1024)                         :: ErrMsg2             ! local error message
+   CHARACTER(*),             PARAMETER     :: RoutineName = 'FAST_Linearize_Tary' 
+   
+   
+   NumTurbines = SIZE(Turbine)   
+   ErrStat = ErrID_None
+   ErrMsg  = ""
+      
+   DO i_turb = 1,NumTurbines
+      
+      CALL FAST_Linearize_T(t_initial, n_t_global, Turbine(i_turb), ErrStat2, ErrMsg2 )
+         CALL SetErrStat(ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
+         IF (ErrStat >= AbortErrLev) RETURN
+      
+   END DO
+  
+   
+END SUBROUTINE FAST_Linearize_Tary
+!----------------------------------------------------------------------------------------------------------------------------------
+!> Routine that performs lineaization at an operating point for a turbine. This is a separate subroutine so that the FAST
+!! driver programs do not need to change or operate on the individual module level. 
+SUBROUTINE FAST_Linearize_T(t_initial, n_t_global, Turbine, ErrStat, ErrMsg)
+
+   REAL(DbKi),               INTENT(IN   ) :: t_initial           !< initial simulation time (almost always 0)
+   INTEGER(IntKi),           INTENT(IN   ) :: n_t_global          !< integer time step   
+   TYPE(FAST_TurbineType),   INTENT(INOUT) :: Turbine             !< all data for one instance of a turbine
+   INTEGER(IntKi),           INTENT(  OUT) :: ErrStat             !< Error status of the operation
+   CHARACTER(*),             INTENT(  OUT) :: ErrMsg              !< Error message if ErrStat /= ErrID_None
+
+      ! local variables
+   REAL(DbKi)                              :: t_global            ! current simulation time
+   REAL(DbKi)                              :: next_lin_time       ! next simulation time where linearization analysis should be performed
+   INTEGER(IntKi)                          :: ErrStat2            ! local error status
+   CHARACTER(1024)                         :: ErrMsg2             ! local error message
+   CHARACTER(MaxWrScrLen)                  :: BlankLine
+   CHARACTER(*),             PARAMETER     :: RoutineName = 'FAST_Linearize_T' 
+
+            
+   ErrStat = ErrID_None
+   ErrMsg  = ""
+   
+   if ( .not. Turbine%p_FAST%Linearize ) return
+   
+   if (Turbine%m_FAST%NextLinTimeIndx <= size(Turbine%p_FAST%LinTimes) ) then  !bjj: maybe this logic should go in FAST_Linearize_OP???
+      
+      next_lin_time = Turbine%p_FAST%LinTimes( Turbine%m_FAST%NextLinTimeIndx )
+      t_global      = t_initial + n_t_global*Turbine%p_FAST%dt
+   
+      if ( EqualRealNos( t_global, next_lin_time ) .or. t_global > next_lin_time ) then
+            
+         BlankLine = ""
+         CALL WrOver( BlankLine )  ! BlankLine contains MaxWrScrLen spaces
+         CALL WrOver ( ' Performing linearization at simulation time '//TRIM( Num2LStr(t_global) )//' s.' )
+         CALL WrScr('')
+
+
+         CALL FAST_Linearize_OP(t_global, Turbine%p_FAST, Turbine%y_FAST, Turbine%m_FAST, &
+                  Turbine%ED, Turbine%BD, Turbine%SrvD, Turbine%AD14, Turbine%AD, Turbine%IfW, Turbine%OpFM, &
+                  Turbine%HD, Turbine%SD, Turbine%MAP, Turbine%FEAM, Turbine%MD, Turbine%Orca, &
+                  Turbine%IceF, Turbine%IceD, Turbine%MeshMapData, ErrStat2, ErrMsg2 )  
+            CALL SetErrStat(ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
+            IF (ErrStat >= AbortErrLev) RETURN
+               
+         Turbine%m_FAST%NextLinTimeIndx = Turbine%m_FAST%NextLinTimeIndx + 1
+      
+      end if
+      
+   end if
+   
+   
+END SUBROUTINE FAST_Linearize_T   
+!----------------------------------------------------------------------------------------------------------------------------------
+   
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! PROGRAM EXIT ROUTINES
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -5476,10 +5867,10 @@ SUBROUTINE FAST_DestroyAll( p_FAST, y_FAST, m_FAST, ED, BD, SrvD, AD14, AD, IfW,
        
       
    
-END SUBROUTINE FAST_DestroyAll
+   END SUBROUTINE FAST_DestroyAll
 !----------------------------------------------------------------------------------------------------------------------------------
-
-
+   
+   
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! CHECKPOINT/RESTART ROUTINES
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -5513,7 +5904,11 @@ SUBROUTINE FAST_CreateCheckpoint_Tary(t_initial, n_t_global, Turbine, Checkpoint
    DO i_turb = 1,NumTurbines
       CALL FAST_CreateCheckpoint_T(t_initial, n_t_global, NumTurbines, Turbine(i_turb), CheckpointRoot, ErrStat2, ErrMsg2, Unit )
          CALL SetErrStat(ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
-         IF (ErrStat >= AbortErrLev ) RETURN
+         if (ErrStat >= AbortErrLev ) then
+            if (Unit > 0) close(Unit)
+            RETURN
+         end if
+         
    END DO
                
    
@@ -5558,7 +5953,11 @@ SUBROUTINE FAST_CreateCheckpoint_T(t_initial, n_t_global, NumTurbines, Turbine, 
       ! Get the arrays of data to be stored in the output file
    CALL FAST_PackTurbineType( ReKiBuf, DbKiBuf, IntKiBuf, Turbine, ErrStat2, ErrMsg2 )
       CALL SetErrStat(ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
-      IF (ErrStat >= AbortErrLev ) RETURN
+      if (ErrStat >= AbortErrLev ) then
+         call cleanup()
+         RETURN
+      end if
+      
       
    ArraySizes = 0   
    IF ( ALLOCATED(ReKiBuf)  ) ArraySizes(1) = SIZE(ReKiBuf)
@@ -5576,7 +5975,15 @@ SUBROUTINE FAST_CreateCheckpoint_T(t_initial, n_t_global, NumTurbines, Turbine, 
       CALL GetNewUnit( unOut, ErrStat2, ErrMsg2 )      
       CALL OpenBOutFile ( unOut, FileName, ErrStat2, ErrMsg2)
          CALL SetErrStat(ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )
-         IF (ErrStat >= AbortErrLev ) RETURN
+         if (ErrStat >= AbortErrLev ) then
+            call cleanup()
+            IF (.NOT. PRESENT(Unit)) THEN
+               CLOSE(unOut)
+               unOut = -1
+            END IF
+                        
+            RETURN
+         end if
   
          ! checkpoint file header:
       WRITE (unOut, IOSTAT=ErrStat2)   INT(ReKi              ,B4Ki)     ! let's make sure we've got the correct number of bytes for reals on restart.
@@ -5634,8 +6041,14 @@ SUBROUTINE FAST_CreateCheckpoint_T(t_initial, n_t_global, NumTurbines, Turbine, 
       end if      
    END IF
    
+   call cleanup()
    
-                  
+contains
+   subroutine cleanup()
+      IF ( ALLOCATED(ReKiBuf)  ) DEALLOCATE(ReKiBuf)
+      IF ( ALLOCATED(DbKiBuf)  ) DEALLOCATE(DbKiBuf)
+      IF ( ALLOCATED(IntKiBuf) ) DEALLOCATE(IntKiBuf)   
+   end subroutine cleanup                  
 END SUBROUTINE FAST_CreateCheckpoint_T
 !----------------------------------------------------------------------------------------------------------------------------------
 !> Routine that calls FAST_RestoreFromCheckpoint_T for an array of Turbine data structures. 
@@ -5752,7 +6165,9 @@ SUBROUTINE FAST_RestoreFromCheckpoint_T(t_initial, n_t_global, NumTurbines, Turb
    
    END IF
       
-      
+      ! in case the Turbine data structure isn't empty on entry of this routine:
+   call FAST_DestroyTurbineType( Turbine, ErrStat2, ErrMsg2 )   
+   
       ! data from current time step:
    READ (unIn, IOSTAT=ErrStat2)   ArraySizes                       ! Number of reals, doubles, and integers written to file
    

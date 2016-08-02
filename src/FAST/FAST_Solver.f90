@@ -1,5 +1,6 @@
 !**********************************************************************************************************************************
-! The FAST_Prog.f90, FAST_Solver.f90, FAST_Subs.f90, and FAST_Mods.f90 make up the FAST glue code in the FAST Modularization Framework.
+! FAST_Solver.f90, FAST_Subs.f90, FAST_Lin.f90, and FAST_Mods.f90 make up the FAST glue code in the FAST Modularization Framework.
+! FAST_Prog.f90, FAST_Library.f90, FAST_Prog.c are different drivers for this code.
 !..................................................................................................................................
 ! LICENSING
 ! Copyright (C) 2013-2016  National Renewable Energy Laboratory
@@ -67,7 +68,6 @@ SUBROUTINE BD_InputSolve( p_FAST, BD, y_AD, u_AD, MeshMapData, ErrStat, ErrMsg )
    CHARACTER(*),                   INTENT(  OUT)  :: ErrMsg                   !< Error message
    
       ! local variables
-   INTEGER(IntKi)                                 :: J                        ! Loops through nodes / elements
    INTEGER(IntKi)                                 :: K                        ! Loops through blades
    INTEGER(IntKi)                                 :: ErrStat2                 ! temporary Error status of the operation
    CHARACTER(ErrMsgLen)                           :: ErrMsg2                  ! temporary Error message if ErrStat /= ErrID_None
@@ -138,8 +138,6 @@ SUBROUTINE ED_InputSolve( p_FAST, u_ED, y_ED, p_AD14, y_AD14, y_AD, y_SrvD, u_AD
    real(reKi)                                     :: Force(3,u_ED%TowerPtLoads%Nnodes)
    real(reKi)                                     :: Moment(3,u_ED%TowerPtLoads%Nnodes)
    
-   integer         :: un_out
-   character(1024) :: BinOutputName
    
       ! Initialize error status
       
@@ -173,17 +171,7 @@ SUBROUTINE ED_InputSolve( p_FAST, u_ED, y_ED, p_AD14, y_AD14, y_AD, y_SrvD, u_AD
          ! we'll need to add this to the loads from AeroDyn, later, so we're going to transfer to a temp mesh here instead of u_ED%TowerPtLoads
             Force  = u_ED%TowerPtLoads%force
             Moment = u_ED%TowerPtLoads%moment
-            
-!BinOutputName = trim(p_FAST%OutFileRoot)//'.Meshes.bin'            
-!un_out = -1
-!CALL MeshWrBin ( un_out, u_ED%TowerPtLoads,  ErrStat2, ErrMsg2, BinOutputName);  IF (ErrStat2 /= ErrID_None) CALL WrScr(TRIM(ErrMsg2))
-!CALL MeshWrBin ( un_out, y_ED%TowerLn2Mesh,  ErrStat2, ErrMsg2, BinOutputName);  IF (ErrStat2 /= ErrID_None) CALL WrScr(TRIM(ErrMsg2))
-!CALL MeshWrBin ( un_out, u_SrvD%TTMD%Mesh,   ErrStat2, ErrMsg2, BinOutputName);  IF (ErrStat2 /= ErrID_None) CALL WrScr(TRIM(ErrMsg2))
-!CALL MeshWrBin ( un_out, y_SrvD%TTMD%Mesh,   ErrStat2, ErrMsg2, BinOutputName);  IF (ErrStat2 /= ErrID_None) CALL WrScr(TRIM(ErrMsg2))
-!CALL MeshMapWrBin( un_out, y_ED%TowerLn2Mesh, u_SrvD%TTMD%Mesh, MeshMapData%ED_L_2_SrvD_P_T, ErrStat2, ErrMsg2, BinOutputName );  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg)) 
-!CALL MeshMapWrBin( un_out, y_SrvD%TTMD%Mesh, u_ED%TowerPtLoads, MeshMapData%SrvD_P_2_ED_L_T, ErrStat2, ErrMsg2, BinOutputName );  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg)) 
-!close( un_out )
-            
+                        
       END IF
             
    ELSE !we'll just take the initial guesses..
@@ -323,14 +311,11 @@ SUBROUTINE IfW_InputSolve( p_FAST, m_FAST, u_IfW, p_IfW, u_AD14, u_AD, y_ED, Err
          END DO !J = 1,p%BldNodes ! Loop through the blade nodes / elements
       END DO !K = 1,p%NumBl         
 
-      if (allocated(u_AD%InflowOnTower)) then
-
-         DO J=1,u_AD%TowerMotion%nnodes
-            Node = Node + 1      
-            u_IfW%PositionXYZ(:,Node) = u_AD%TowerMotion%TranslationDisp(:,J) + u_AD%TowerMotion%Position(:,J)
-         END DO      
+      DO J=1,u_AD%TowerMotion%nnodes
+         Node = Node + 1      
+         u_IfW%PositionXYZ(:,Node) = u_AD%TowerMotion%TranslationDisp(:,J) + u_AD%TowerMotion%Position(:,J)
+      END DO      
                   
-      end if
                         
    END IF
    
@@ -350,7 +335,6 @@ SUBROUTINE IfW_SetExternalInputs( p_IfW, m_FAST, y_ED, u_IfW )
    TYPE(InflowWind_InputType),       INTENT(INOUT)  :: u_IfW        !< InflowWind Inputs at t
 
       ! local variables
-   INTEGER(IntKi)                                   :: i            ! loop counter
    
    ! bjj: this is a total hack to get the lidar inputs into InflowWind. We should use a mesh to take care of this messiness (and, really this Lidar Focus should come
    ! from Fortran (a scanning pattern or file-lookup inside InflowWind), not MATLAB.
@@ -379,7 +363,6 @@ SUBROUTINE AD_InputSolve_IfW( p_FAST, u_AD, y_IfW, y_OpFM, ErrStat, ErrMsg )
 
    INTEGER(IntKi)                               :: J           ! Loops through nodes / elements.
    INTEGER(IntKi)                               :: K           ! Loops through blades.
-   INTEGER(IntKi)                               :: NodeNum     ! Node number for blade/node on mesh
    INTEGER(IntKi)                               :: NumBl
    INTEGER(IntKi)                               :: NNodes
    INTEGER(IntKi)                               :: node
@@ -468,9 +451,6 @@ SUBROUTINE AD_InputSolve_NoIfW( p_FAST, u_AD, y_ED, BD, MeshMapData, ErrStat, Er
       ! Local variables:
 
    INTEGER(IntKi)                               :: K           ! Loops through blades
-   INTEGER(IntKi)                               :: NodeNum     ! Node number for blade/node on mesh
-   INTEGER(IntKi)                               :: NumBl
-   INTEGER(IntKi)                               :: node
    INTEGER(IntKi)                               :: ErrStat2
    CHARACTER(ErrMsgLen)                         :: ErrMsg2 
    CHARACTER(*), PARAMETER                      :: RoutineName = 'AD_InputSolve_NoIfW'
@@ -542,9 +522,6 @@ SUBROUTINE AD14_InputSolve_IfW( p_FAST, u_AD14, y_IfW, y_OpFM, ErrStat, ErrMsg )
 
       ! Local variables:
 
-   INTEGER(IntKi)                               :: J           ! Loops through nodes / elements.
-   INTEGER(IntKi)                               :: K           ! Loops through blades.
-   INTEGER(IntKi)                               :: NodeNum     ! Node number for blade/node on mesh
    INTEGER(IntKi)                               :: NumBl
    INTEGER(IntKi)                               :: BldNodes
 
@@ -4148,7 +4125,6 @@ END SUBROUTINE InitModuleMappings
 !> This subroutine solves the input-output relations for all of the modules. It is a subroutine because it gets done twice--
 !! once at the start of the n_t_global loop and once in the j_pc loop, using different states.
 !! *** Note that modules that do not have direct feedthrough should be called first. ***
-!! also note that this routine uses variables from the main routine (not declared as arguments)
 SUBROUTINE CalcOutputs_And_SolveForInputs( n_t_global, this_time, this_state, calcJacobian, NextJacCalcTime, &
                p_FAST, m_FAST, ED, BD, SrvD, AD14, AD, IfW, OpFM, HD, SD, MAPp, FEAM, MD, Orca, IceF, IceD, MeshMapData, ErrStat, ErrMsg )
    REAL(DbKi)              , intent(in   ) :: this_time           !< The current simulation time (actual or time of prediction)
@@ -4186,7 +4162,6 @@ SUBROUTINE CalcOutputs_And_SolveForInputs( n_t_global, this_time, this_state, ca
    CHARACTER(ErrMsgLen)                    :: ErrMSg2
    CHARACTER(*), PARAMETER                 :: RoutineName = 'CalcOutputs_And_SolveForInputs'
    
-   integer :: k
    
 #ifdef OUTPUT_MASS_MATRIX   
    INTEGER                                 :: UnMM
@@ -4222,7 +4197,7 @@ SUBROUTINE CalcOutputs_And_SolveForInputs( n_t_global, this_time, this_state, ca
                   
 #else
 
-   !! ## This is OPTION 2 before OPTION 1:
+   !> ## This is OPTION 2 before OPTION 1:
    !!    
    !!  For cases with HydroDyn, BeamDyn, OrcaFlex interface, and/or SubDyn, it calls ED_CalcOuts (a time-sink) 3 times per step/correction 
    !! (plus the 6 calls when calculating the Jacobian).
@@ -4250,21 +4225,21 @@ if (n_t_global == 0) then
 end if
 #endif
 
-      !! Solve option 2 (modules without direct feedthrough):
+      !> Solve option 2 (modules without direct feedthrough):
    CALL SolveOption2(this_time, this_state, p_FAST, m_FAST, ED, BD, AD14, AD, SrvD, IfW, OpFM, MeshMapData, ErrStat2, ErrMsg2, n_t_global < 0)
       CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )  
                
-      !! transfer ED outputs to other modules used in option 1:
+      !> transfer ED outputs to other modules used in option 1:
    CALL Transfer_ED_to_HD_SD_BD_Mooring( p_FAST, ED%Output(1), HD%Input(1), SD%Input(1), MAPp%Input(1), FEAM%Input(1), MD%Input(1), &
                                          Orca%Input(1), BD%Input(1,:), MeshMapData, ErrStat2, ErrMsg2 )         
       CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )                                     
       
-      !! Solve option 1 (rigorous solve on loads/accelerations)
+      !> Solve option 1 (rigorous solve on loads/accelerations)
    CALL SolveOption1(this_time, this_state, calcJacobian, p_FAST, ED, BD, HD, SD, MAPp, FEAM, MD, Orca, IceF, IceD, MeshMapData, ErrStat2, ErrMsg2)
       CALL SetErrStat( ErrStat2, ErrMsg2, ErrStat, ErrMsg, RoutineName )  
 
       
-      !! Now use the ElastoDyn and BD outputs from option1 to update the inputs for InflowWind, AeroDyn, and ServoDyn (necessary only if they have states)
+      !> Now use the ElastoDyn and BD outputs from option1 to update the inputs for InflowWind, AeroDyn, and ServoDyn (necessary only if they have states)
                      
    IF ( p_FAST%CompAero == Module_AD14 ) THEN
       
@@ -4361,7 +4336,7 @@ SUBROUTINE SolveOption1(this_time, this_state, calcJacobian, p_FAST, ED, BD, HD,
    
    !............................................................................................................................   
    !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   !! Option 1: solve for consistent inputs and outputs, which is required when Y has direct feedthrough in 
+   !> Option 1: solve for consistent inputs and outputs, which is required when Y has direct feedthrough in 
    !!           modules coupled together
    !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                
@@ -4539,7 +4514,7 @@ SUBROUTINE SolveOption2(this_time, this_state, p_FAST, m_FAST, ED, BD, AD14, AD,
    CHARACTER(*), PARAMETER                 :: RoutineName = 'SolveOption2'       
    
    !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   !! ++ Option 2: Solve for inputs based only on the current outputs. 
+   !> ++ Option 2: Solve for inputs based only on the current outputs. 
    !!    This is much faster than option 1 when the coupled modules do not have direct feedthrough.
    !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             
@@ -5424,145 +5399,5 @@ END SUBROUTINE FAST_ExtrapInterpMods
 !----------------------------------------------------------------------------------------------------------------------------------
                    
                    
-!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!> This routine is used for debugging mesh mappings. It should probably be in the ModMesh_Mapping.f90 code.
-SUBROUTINE WriteMappingTransferToFile(Mesh1_I,Mesh1_O,Mesh2_I,Mesh2_O,Map_Mod1_Mod2,Map_Mod2_Mod1,BinOutputName)
-
-   TYPE(meshtype),    intent(in) :: mesh1_I              !< mesh 1 inputs
-   TYPE(meshtype),    intent(in) :: mesh1_O              !< mesh 1 outputs  
-   TYPE(meshtype),    intent(in) :: mesh2_I              !< mesh 2 inputs
-   TYPE(meshtype),    intent(in) :: mesh2_O              !< mesh 2 outputs
-   
-   TYPE(MeshMapType), intent(in) :: Map_Mod1_Mod2        !< Data for mapping meshes from mesh 1 (outputs) to mesh 2 (inputs)
-   TYPE(MeshMapType), intent(in) :: Map_Mod2_Mod1        !< Data for mapping meshes from mesh 2 (outputs) to mesh 1 (inputs)
-
-   CHARACTER(*),      INTENT(IN) :: BinOutputName        !< name of binary output file
-   
-   
-   ! local variables:
-   TYPE(meshtype)                         :: mesh_Motion_1PT, mesh1_I_1PT, mesh2_O_1PT
-   TYPE(MeshMapType)                      :: Map_Mod2_O_1PT, Map_Mod1_I_1PT
-      
-   INTEGER(IntKi)                         :: i
-   INTEGER(IntKi)                         :: un_out
-   INTEGER(IntKi)                         :: ErrStat          ! Error status of the operation
-   CHARACTER(1024)                        :: ErrMsg           ! Error message if ErrStat /= ErrID_None
-   CHARACTER(256)                         :: PrintWarnF, PrintWarnM, TmpValues
-
-   !------------------------------------------------------------------------
-   ! Make sure the meshes are committed before checking them:
-   !------------------------------------------------------------------------
-   
-   IF (.NOT. mesh1_I%Committed .OR. .NOT. mesh1_O%Committed ) RETURN
-   IF (.NOT. mesh2_I%Committed .OR. .NOT. mesh2_O%Committed ) RETURN
-      
-   !------------------------------------------------------------------------
-   !lump the loads to one point and compare:
-   !------------------------------------------------------------------------       
-   
-   ! create one loads mesh with one point:
-   CALL MeshCreate( BlankMesh       = mesh1_I_1PT        &
-                  , IOS              = COMPONENT_INPUT   &
-                  , NNodes           = 1                 &
-                  , Force            = .TRUE.            &
-                  , Moment           = .TRUE.            &
-                  , ErrStat          = ErrStat           &
-                  , ErrMess          = ErrMsg            )
-      
-   IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-         
-         
-   CALL MeshPositionNode ( mesh1_I_1PT, 1, (/0.0_ReKi, 0.0_ReKi, 0.0_ReKi/), ErrStat, ErrMsg ) ; IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))             
-   CALL MeshConstructElement ( mesh1_I_1PT, ELEMENT_POINT, ErrStat, ErrMsg, 1 );                 IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))                                       
-   CALL MeshCommit ( mesh1_I_1PT, ErrStat, ErrMsg )                                       ;      IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg)) 
-      
-   !.....         
-   ! create a corresponding motion mesh with one point:
-   
-   CALL MeshCopy( mesh1_I_1PT, mesh_Motion_1PT, MESH_SIBLING, ErrStat, ErrMsg &
-                  , IOS              = COMPONENT_OUTPUT  &
-                  , TranslationDisp  = .TRUE.            ) ;                                     IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))                     
-   !.....         
-   ! create a second loads mesh with one point:
-   CALL MeshCopy( mesh1_I_1PT, mesh2_O_1PT, MESH_NEWCOPY, ErrStat, ErrMsg )  ! This thinks it's for input, but really it's for output. I don't think it matters...       
-       
-   !.....         
-   ! create the mapping data structures:       
-   CALL MeshMapCreate( Mesh1_I, Mesh1_I_1PT, Map_Mod1_I_1PT,  ErrStat, ErrMsg );                 IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   CALL MeshMapCreate( Mesh2_O, Mesh2_O_1PT, Map_Mod2_O_1PT,  ErrStat, ErrMsg );                 IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-
-   !.....         
-   ! transfer MESH1_I (loads) to single point:
-   
-   IF ( mesh1_I%ElemTable(ELEMENT_POINT)%nelem > 0 ) THEN
-      CALL Transfer_Point_to_Point( Mesh1_I, Mesh1_I_1PT, Map_Mod1_I_1PT,ErrStat,ErrMsg,mesh1_O,mesh_Motion_1PT);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))         
-   ELSEIF ( mesh1_I%ElemTable(ELEMENT_LINE2)%nelem > 0 ) THEN
-      CALL Transfer_Line2_to_Point( Mesh1_I, Mesh1_I_1PT, Map_Mod1_I_1PT,ErrStat,ErrMsg,mesh1_O,mesh_Motion_1PT);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))          
-   END IF
-   
-   !.....         
-   ! transfer Mesh2_O (loads) to single point:      
-   IF ( Mesh2_O%ElemTable(ELEMENT_POINT)%nelem > 0 ) THEN
-      CALL Transfer_Point_to_Point( Mesh2_O, Mesh2_O_1PT, Map_Mod2_O_1PT,ErrStat,ErrMsg,mesh2_I,mesh_Motion_1PT);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg)) 
-   ELSEIF ( Mesh2_O%ElemTable(ELEMENT_LINE2)%nelem > 0 ) THEN 
-      CALL Transfer_Line2_to_Point( Mesh2_O, Mesh2_O_1PT, Map_Mod2_O_1PT,ErrStat,ErrMsg,mesh2_I,mesh_Motion_1PT);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))          
-   END IF
-   !............
-            
-   ! dsisplay a warning if the point loads are not equal:         
-   PrintWarnF=""
-   PrintWarnM=""
-   do i=1,3
-      if (.NOT. equalrealnos(mesh1_I_1PT%Force( i,1),mesh2_O_1PT%Force( i,1)) ) PrintWarnF=NewLine//"  <----------- WARNING: Forces are not equal ----------->  "//NewLine//NewLine
-      if (.NOT. equalrealnos(mesh1_I_1PT%Moment(i,1),mesh2_O_1PT%Moment(i,1)) ) PrintWarnM=NewLine//"  <----------- WARNING: Moments are not equal ----------->  "//NewLine//NewLine
-   end do
-
-   
-   call wrscr(TRIM(PrintWarnF)//'Total Force:' )
-   write(TmpValues,*) mesh1_I_1PT%Force;   call wrscr('     Mesh 1: '//TRIM(TmpValues))
-   write(TmpValues,*) mesh2_O_1PT%Force;   call wrscr('     Mesh 2: '//TRIM(TmpValues))
-   call wrscr(TRIM(PrintWarnM)//'Total Moment:' )
-   write(TmpValues,*) mesh1_I_1PT%Moment;  call wrscr('     Mesh 1: '//TRIM(TmpValues))
-   write(TmpValues,*) mesh2_O_1PT%Moment;  call wrscr('     Mesh 2: '//TRIM(TmpValues))
-   !............
-   
-   !------------------------------------------------------------------------
-   ! now we'll write all the mesh info to a file for debugging:   
-   !------------------------------------------------------------------------
-
-   un_out = -1
-   CALL MeshWrBin ( un_out, Mesh1_I,         ErrStat, ErrMsg, BinOutputName);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   CALL MeshWrBin ( un_out, Mesh1_O,         ErrStat, ErrMsg, BinOutputName);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   CALL MeshWrBin ( un_out, Mesh2_I,         ErrStat, ErrMsg, BinOutputName);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   CALL MeshWrBin ( un_out, Mesh2_O,         ErrStat, ErrMsg, BinOutputName);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-      
-   CALL MeshWrBin ( un_out, mesh1_I_1PT,     ErrStat, ErrMsg, BinOutputName);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   CALL MeshWrBin ( un_out, mesh2_O_1PT,     ErrStat, ErrMsg, BinOutputName);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))         
-   CALL MeshWrBin ( un_out, mesh_Motion_1PT, ErrStat, ErrMsg, BinOutputName);  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))   
-      
-   CALL MeshMapWrBin( un_out, Mesh1_O, Mesh2_I, Map_Mod1_Mod2, ErrStat, ErrMsg, BinOutputName );  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg)) 
-   CALL MeshMapWrBin( un_out, Mesh2_O, Mesh1_I, Map_Mod2_Mod1, ErrStat, ErrMsg, BinOutputName );  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg)) 
-      
-   CALL MeshMapWrBin( un_out, Mesh1_I, Mesh1_I_1PT, Map_Mod1_I_1PT, ErrStat, ErrMsg, BinOutputName );  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg)) 
-   CALL MeshMapWrBin( un_out, Mesh2_O, Mesh2_O_1PT, Map_Mod2_O_1PT, ErrStat, ErrMsg, BinOutputName );  IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg)) 
-
-   close( un_out )
-   
-   !------------------------------------------------------------------------
-   ! destroy local copies:
-   !------------------------------------------------------------------------
-   
-   CALL MeshDestroy( mesh_Motion_1PT, ErrStat, ErrMsg ); IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   CALL MeshDestroy( mesh1_I_1PT, ErrStat, ErrMsg );     IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   CALL MeshDestroy( mesh2_O_1PT, ErrStat, ErrMsg );     IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   
-   call MeshMapDestroy(Map_Mod1_I_1PT, ErrStat, ErrMsg);IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   call MeshMapDestroy(Map_Mod2_O_1PT, ErrStat, ErrMsg);IF (ErrStat /= ErrID_None) CALL WrScr(TRIM(ErrMsg))
-   
-   
-
-END SUBROUTINE WriteMappingTransferToFile 
-!----------------------------------------------------------------------------------------------------------------------------------
-
                    
 END MODULE FAST_Solver

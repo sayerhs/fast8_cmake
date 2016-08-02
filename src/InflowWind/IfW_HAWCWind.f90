@@ -29,11 +29,6 @@ MODULE IfW_HAWCWind
 ! limitations under the License.
 !
 !**********************************************************************************************************************************
-! File last committed: $Date: 2014-07-29 13:30:04 -0600 (Tue, 29 Jul 2014) $
-! (File) Revision #: $Rev: 125 $
-! URL: $HeadURL: https://windsvn.nrel.gov/InflowWind/branches/modularization2/Source/IfW_HAWCWind.f90 $
-!**********************************************************************************************************************************
-
    USE                                          NWTC_Library
    USE                                          IfW_HAWCWind_Types
 
@@ -239,7 +234,6 @@ SUBROUTINE ReadTurbulenceData(p, InitInp, ErrStat, ErrMsg)
    INTEGER                                                   :: IC               ! Loop counter for the number of wind components
    INTEGER                                                   :: IX               ! Loop counter for the number of grid points in the X direction
    INTEGER                                                   :: IY               ! Loop counter for the number of grid points in the Y direction
-   INTEGER                                                   :: IZ               ! Loop counter for the number of grid points in the Z direction
    INTEGER                                                   :: unWind           ! unit number for reading binary files
 
    INTEGER(IntKi)                                           :: TmpErrStat        ! temporary error status
@@ -324,17 +318,13 @@ SUBROUTINE ScaleTurbulence(p, InitInp, Interval, InitOut, MiscVars, ErrStat, Err
    CHARACTER(*),                             INTENT(  OUT)  :: ErrMsg            !< Message about errors
    
       ! Local Variables:
-   REAL(ReKi)                                               :: position(3)       ! location where std dev of wind speed will be computed
-   REAL(DbKi)                                               :: t                 ! time  
    REAL(DbKi)                                               :: v(3)              ! instanteanous wind speed at target position   
    REAL(DbKi)                                               :: vMean(3)          ! average wind speeds over time at target position
    REAL(DbKi)                                               :: vSum(3)           ! sum over time of wind speeds at target position
    REAL(DbKi)                                               :: vSum2(3)          ! sum of wind speeds squared
    REAL(ReKi)                                               :: ActualSigma(3)    ! computed standard deviation
    
-   INTEGER                                                  :: n                 ! number of time steps between TStart and TEnd
    INTEGER                                                  :: ic                ! Loop counter for wind component
-   INTEGER                                                  :: it                ! Loop counter for time
    INTEGER                                                  :: ix                ! Loop counter for x
    INTEGER                                                  :: iy                ! Loop counter for y
    INTEGER                                                  :: iz                ! Loop counter for z
@@ -494,15 +484,16 @@ END SUBROUTINE AddMeanVelocity
 !! day. For now, it merely needs to be functional. It can be fixed up and made all pretty later.
 !!
 !!   16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
-SUBROUTINE IfW_HAWCWind_CalcOutput(Time, PositionXYZ, p, OutData, MiscVars, ErrStat, ErrMsg)
+SUBROUTINE IfW_HAWCWind_CalcOutput(Time, PositionXYZ, p, Velocity, DiskVel, MiscVars, ErrStat, ErrMsg)
 
    IMPLICIT NONE
 
       ! Passed Variables
    REAL(DbKi),                               INTENT(IN   )  :: Time              !< time from the start of the simulation
-   REAL(ReKi), ALLOCATABLE,                  INTENT(IN   )  :: PositionXYZ(:,:)  !< Array of XYZ coordinates, 3xN
+   REAL(ReKi),                               INTENT(IN   )  :: PositionXYZ(:,:)  !< Array of XYZ coordinates, 3xN
    TYPE(IfW_HAWCWind_ParameterType),         INTENT(IN   )  :: p                 !< Parameters
-   TYPE(IfW_HAWCWind_OutputType),            INTENT(  OUT)  :: OutData           !< Output at Time
+   REAL(ReKi),                               INTENT(INOUT)  :: Velocity(:,:)     !< Velocity output at Time    (Set to INOUT so that array does not get deallocated)
+   REAL(ReKi),                               INTENT(  OUT)  :: DiskVel(3)        !< HACK for AD14: disk velocity output at Time
    TYPE(IfW_HAWCWind_MiscVarType),           INTENT(  OUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
       ! Error handling
@@ -537,26 +528,11 @@ SUBROUTINE IfW_HAWCWind_CalcOutput(Time, PositionXYZ, p, OutData, MiscVars, ErrS
       ! This is just in case we only have a single point, the SIZE command returns the correct number of points.
    NumPoints   =  SIZE(PositionXYZ,2)
 
-      ! Allocate Velocity output array
-   IF ( .NOT. ALLOCATED(OutData%Velocity)) THEN
-      CALL AllocAry( OutData%Velocity, 3, NumPoints, "Velocity matrix at timestep", TmpErrStat, TmpErrMsg )
-      CALL SetErrStat(TmpErrStat,"Could not allocate the output velocity array.",   &
-         ErrStat,ErrMsg,RoutineName)
-      IF ( ErrStat >= AbortErrLev ) RETURN
-   ELSEIF ( SIZE(OutData%Velocity,DIM=2) /= NumPoints ) THEN
-      CALL SetErrStat( ErrID_Fatal,"Programming error: Position and Velocity arrays are not sized the same.",  &
-         ErrStat, ErrMsg, RoutineName)
-      RETURN
-   ENDIF
-
       ! Step through all the positions and get the velocities
    DO PointNum = 1, NumPoints
 
-
-
-
          ! Calculate the velocity for the position
-      OutData%Velocity(:,PointNum) = FF_Interp(Time,PositionXYZ(:,PointNum),p,MiscVars,TmpErrStat,TmpErrMsg)
+      Velocity(:,PointNum) = FF_Interp(Time,PositionXYZ(:,PointNum),p,MiscVars,TmpErrStat,TmpErrMsg)
 
 
          ! Error handling
@@ -574,8 +550,8 @@ SUBROUTINE IfW_HAWCWind_CalcOutput(Time, PositionXYZ, p, OutData, MiscVars, ErrS
 
       !REMOVE THIS for AeroDyn 15
       ! Return the average disk velocity values needed by AeroDyn 14.  This is the WindInf_ADhack_diskVel routine.
-   OutData%DiskVel(1)   =  p%URef
-   OutData%DiskVel(2:3) =  0.0_ReKi
+   DiskVel(1)   =  p%URef
+   DiskVel(2:3) =  0.0_ReKi
 
 
    RETURN
@@ -591,7 +567,7 @@ END SUBROUTINE IfW_HAWCWind_CalcOutput
    !!    looking downwind and Z is up.  It also assumes that no extrapolation will be needed.
    FUNCTION FF_Interp(Time, Position, p, MiscVars, ErrStat, ErrMsg)
 
-      REAL(DbKi),                         INTENT(IN   )  :: Time           !< time
+      REAL(DbKi),                         INTENT(IN   )  :: Time           !< Time at which to find wind speed
       REAL(ReKi),                         INTENT(IN   )  :: Position(3)    !< takes the place of XGrnd, YGrnd, ZGrnd
       TYPE(IfW_HAWCWind_ParameterType),   INTENT(IN   )  :: p              !< Parameters
       TYPE(IfW_HAWCWind_MiscVarType),     INTENT(INOUT)  :: MiscVars       !< Misc variables for optimization (not copied in glue code)
@@ -615,8 +591,6 @@ END SUBROUTINE IfW_HAWCWind_CalcOutput
       REAL(ReKi)                                         :: ZGRID
       REAL(ReKi)                                         :: N(8)           ! array for holding scaling factors for the interpolation algorithm
       REAL(ReKi)                                         :: u(8)           ! array for holding the corner values for the interpolation algorithm across a cubic volume
-      REAL(ReKi)                                         :: M(4)           ! array for holding scaling factors for the interpolation algorithm
-      REAL(ReKi)                                         :: v(4)           ! array for holding the corner values for the interpolation algorithm across an area
 
       INTEGER(IntKi)                                     :: IDIM
       INTEGER(IntKi)                                     :: IXHI
@@ -768,7 +742,7 @@ END SUBROUTINE IfW_HAWCWind_CalcOutput
 !====================================================================================================
 !>  This subroutine cleans up any data that is still allocated.  The (possibly) open files are
 !!  closed in InflowWindMod.
-SUBROUTINE IfW_HAWCWind_End( PositionXYZ, p, OutData, MiscVars, ErrStat, ErrMsg)
+SUBROUTINE IfW_HAWCWind_End( p, MiscVars, ErrStat, ErrMsg)
 
    IMPLICIT                                                 NONE
 
@@ -777,9 +751,7 @@ SUBROUTINE IfW_HAWCWind_End( PositionXYZ, p, OutData, MiscVars, ErrStat, ErrMsg)
 
 
       ! Passed Variables
-   REAL(ReKi),             ALLOCATABLE,   INTENT(INOUT)  :: PositionXYZ(:,:)  !< Coordinate position list
    TYPE(IfW_HAWCWind_ParameterType),      INTENT(INOUT)  :: p                 !< Parameters
-   TYPE(IfW_HAWCWind_OutputType),         INTENT(INOUT)  :: OutData           !< Output
    TYPE(IfW_HAWCWind_MiscVarType),        INTENT(  OUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
 
@@ -799,10 +771,6 @@ SUBROUTINE IfW_HAWCWind_End( PositionXYZ, p, OutData, MiscVars, ErrStat, ErrMsg)
    ErrStat  = ErrID_None
 
 
-      ! Destroy the PositionXYZ data
-
-   IF ( ALLOCATED(PositionXYZ) )    DEALLOCATE(PositionXYZ)
-
 
 
       ! Destroy parameter data
@@ -814,12 +782,6 @@ SUBROUTINE IfW_HAWCWind_End( PositionXYZ, p, OutData, MiscVars, ErrStat, ErrMsg)
       ! Destroy the state data
 
    CALL IfW_HAWCWind_DestroyMisc(  MiscVars,   TmpErrStat, TmpErrMsg )
-   CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName)
-
-
-      ! Destroy the output data
-
-   CALL IfW_HAWCWind_DestroyOutput(      OutData,       TmpErrStat, TmpErrMsg )
    CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName)
 
 

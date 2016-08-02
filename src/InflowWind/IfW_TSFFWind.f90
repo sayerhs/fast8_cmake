@@ -33,10 +33,6 @@ MODULE IfW_TSFFWind
 ! limitations under the License.
 !
 !**********************************************************************************************************************************
-! File last committed: $Date: 2014-10-29 16:28:35 -0600 (Wed, 29 Oct 2014) $
-! (File) Revision #: $Rev: 125 $
-! URL: $HeadURL: https://windsvn.nrel.gov/InflowWind/branches/modularization2/Source/IfW_TSFFWind.f90 $
-!**********************************************************************************************************************************
 
    USE                                          NWTC_Library
    USE                                          IfW_TSFFWind_Types
@@ -87,20 +83,8 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
 
       ! Local Variables:
 
-!   REAL(ReKi)                                               :: TI      (3)       ! turbulence intensities of the wind components as defined in the FF file, not necessarially the actual TI
-!   REAL(ReKi)                                               :: BinTI   (3)       ! turbulence intensities of the wind components as defined in the FF binary file, not necessarially the actual TI
-   REAL(ReKi)                                               :: UBar
-   REAL(ReKi)                                               :: ZCenter
-
    INTEGER(IntKi)                                           :: UnitWind     ! Unit number for the InflowWind input file
    INTEGER(B2Ki)                                            :: Dum_Int2
-   INTEGER(IntKi)                                           :: I
-   LOGICAL                                                  :: CWise
-   LOGICAL                                                  :: Exists
-   CHARACTER( 1028 )                                        :: SumFile           ! length is LEN(ParamData%WindFileName) + the 4-character extension.
-   CHARACTER( 1028 )                                        :: TwrFile           ! length is LEN(ParamData%WindFileName) + the 4-character extension.
-
-
 
       !-------------------------------------------------------------------------------------------------
       ! Initialize temporary variables
@@ -125,15 +109,13 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
       ! Copy things from the InitData to the ParamData
       !-------------------------------------------------------------------------------------------------
 
-   ParamData%WindFileName     =  InitData%WindFileName          ! Filename of the FF wind file
-
 
       !----------------------------------------------------------------------------------------------
       ! Open the binary file, read its "header" (first 2-byte integer) to determine what format
       ! binary file it is, and close it.
       !----------------------------------------------------------------------------------------------
 
-   CALL OpenBInpFile (UnitWind, TRIM(ParamData%WindFileName), TmpErrStat, TmpErrMsg)
+   CALL OpenBInpFile (UnitWind, TRIM(InitData%WindFileName), TmpErrStat, TmpErrMsg)
    CALL SetErrStat(TmpErrStat,TmpErrMsg,ErrStat,ErrMsg,RoutineName)
    IF ( ErrStat >= AbortErrLev ) RETURN
 
@@ -143,7 +125,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
    CLOSE( UnitWind )
 
    IF (TmpErrStat /= 0) THEN
-      CALL SetErrStat(ErrID_Fatal,' Error reading first binary integer from file "'//TRIM(ParamData%WindFileName)//'."',   &
+      CALL SetErrStat(ErrID_Fatal,' Error reading first binary integer from file "'//TRIM(InitData%WindFileName)//'."',   &
                ErrStat,ErrMsg,RoutineName)
       RETURN
    ENDIF
@@ -249,7 +231,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
    ! Open the file
    !-------------------------------------------------------------------------------------------------
 
-      CALL OpenBInpFile (UnitWind, TRIM(ParamData%WindFileName), TmpErrStat, TmpErrMsg)
+      CALL OpenBInpFile (UnitWind, TRIM(InitData%WindFileName), TmpErrStat, TmpErrMsg)
       CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName )                  
       IF ( ErrStat >= AbortErrLev ) RETURN
 
@@ -259,7 +241,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 2-byte integer. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Int2             ! the file identifier, INT(2)
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading the file identifier in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading the file identifier in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%Periodic = Dum_Int2 == INT( 8, B2Ki) ! the number 7 is used for non-periodic wind files; 8 is periodic wind
@@ -268,7 +250,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte integer. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Int4             ! the number of grid points vertically, INT(4)
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading the number of z grid points in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading the number of z grid points in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%NZGrids = Dum_Int4
@@ -277,7 +259,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte integer. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Int4             ! the number of grid points laterally, INT(4)
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading the number of y grid points in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading the number of y grid points in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%NYGrids = Dum_Int4
@@ -286,7 +268,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte integer. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Int4             ! the number of tower points, INT(4)
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading the number of tower points in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading the number of tower points in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%NTGrids = Dum_Int4
@@ -295,7 +277,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte integer. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Int4             ! the number of time steps, INT(4)
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading the number of time steps in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading the number of time steps in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%NFFSteps = Dum_Int4
@@ -304,7 +286,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte real. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Real4            ! grid spacing in vertical direction (dz), REAL(4), in m
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading dz in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading dz in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%InvFFZD = 1.0/Dum_Real4                            ! 1/dz
@@ -314,7 +296,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte real. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Real4            ! grid spacing in lateral direction (dy), REAL(4), in m
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading dy in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading dy in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%InvFFYD = 1.0 / Dum_Real4                          ! 1/dy
@@ -324,7 +306,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte real. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Real4            ! grid spacing in time (dt), REAL(4), in m/s
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading dt in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading dt in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%FFDTime = Dum_Real4
@@ -334,7 +316,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte real. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Real4            ! the mean wind speed at hub height, REAL(4), in m/s
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading mean wind speed in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading mean wind speed in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%MeanFFWS = Dum_Real4
@@ -344,7 +326,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte real. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Real4            ! height of the hub, REAL(4), in m
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading zHub in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading zHub in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%RefHt = Dum_Real4
@@ -353,7 +335,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte real. Can't use library read routines for this.
          READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Real4            ! height of the bottom of the grid, REAL(4), in m
             IF ( TmpErrStat /= 0 )  THEN
-               CALL SetErrStat( ErrID_Fatal, ' Error reading GridBase in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+               CALL SetErrStat( ErrID_Fatal, ' Error reading GridBase in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                RETURN
             ENDIF
             ParamData%GridBase = Dum_Real4
@@ -369,7 +351,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
                   ! Read in the 4-byte real. Can't use library read routines for this.
                READ (UnitWind, IOSTAT=TmpErrStat)   Vslope(IC)     ! the IC-component slope for scaling, REAL(4)
                   IF ( TmpErrStat /= 0 )  THEN
-                     CALL SetErrStat( ErrID_Fatal, ' Error reading Vslope('//Num2LStr(IC)//') in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+                     CALL SetErrStat( ErrID_Fatal, ' Error reading Vslope('//Num2LStr(IC)//') in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                      RETURN
                   ENDIF
 
@@ -377,7 +359,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
                   ! Read in the 4-byte real. Can't use library read routines for this.
                READ (UnitWind, IOSTAT=TmpErrStat)   Voffset(IC)    ! the IC-component offset for scaling, REAL(4)
                   IF ( TmpErrStat /= 0 )  THEN
-                     CALL SetErrStat( ErrID_Fatal, ' Error reading Voffset('//Num2LStr(IC)//') in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+                     CALL SetErrStat( ErrID_Fatal, ' Error reading Voffset('//Num2LStr(IC)//') in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                      RETURN
                   ENDIF
 
@@ -391,7 +373,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
             ! Read in the 4-byte integer. Can't use library read routines for this.
             READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Int4          ! the number of characters in the description string, max 200, INT(4)
                IF ( TmpErrStat /= 0 )  THEN
-                  CALL SetErrStat( ErrID_Fatal, ' Error reading NCHAR in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
+                  CALL SetErrStat( ErrID_Fatal, ' Error reading NCHAR in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName )                  
                   RETURN
                ENDIF
                nchar = Dum_Int4
@@ -404,7 +386,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
                   ! Read in the 1-byte integer. Can't use library read routines for this.
                READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Int1       ! the ASCII integer representation of the character, INT(1)
                IF ( TmpErrStat /= 0 )  THEN
-                  CALL SetErrStat( ErrID_Fatal, ' Error reading description line in the FF binary file "'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName ) 
+                  CALL SetErrStat( ErrID_Fatal, ' Error reading description line in the FF binary file "'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName ) 
                   RETURN
                ENDIF
 
@@ -412,7 +394,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
                   DescStr(IC:IC) = ACHAR( Dum_Int1 )              ! converted ASCII characters
                ELSEIF ( FirstWarn ) THEN
                   FirstWarn = .FALSE.
-                  CALL SetErrStat( ErrID_Info, ' Description string was too long for variable.'//TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName ) 
+                  CALL SetErrStat( ErrID_Info, ' Description string was too long for variable.'//TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName ) 
                ENDIF
 
             ENDDO !IC
@@ -481,7 +463,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
                      READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Int2       ! normalized wind-component, INT(2)
                      IF ( TmpErrStat /= 0 )  THEN                        
                         CALL SetErrStat( ErrID_Fatal, ' Error reading grid wind components in the FF binary file "'// &
-                                    TRIM( ParamData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName ) 
+                                    TRIM( InitData%WindFileName )//'."', ErrStat, ErrMsg, RoutineName ) 
                         RETURN
                      ENDIF
 
@@ -508,7 +490,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
                      ! Read in a 2-byte integer. Can't use library routines for this.
                   READ (UnitWind, IOSTAT=TmpErrStat)   Dum_Int2       ! normalized wind-component, INT(2)
                   IF ( TmpErrStat /= 0 )  THEN
-                     CALL SetErrStat( ErrID_Fatal, ' Error reading tower wind components in the FF binary file "'//TRIM(ParamData%WindFileName)//'."'&
+                     CALL SetErrStat( ErrID_Fatal, ' Error reading tower wind components in the FF binary file "'//TRIM(InitData%WindFileName)//'."'&
                                       , ErrStat, ErrMsg, RoutineName )                    
                      RETURN
                   ENDIF
@@ -551,7 +533,7 @@ SUBROUTINE IfW_TSFFWind_Init(InitData, ParamData, MiscVars, Interval, InitOutDat
       WRITE(InitData%SumFileUnit,'(A)',        IOSTAT=TmpErrStat)    'TurbSim wind type.  Read by InflowWind sub-module '//TRIM(IfW_TSFFWind_Ver%Name)//  &
                                                                                  ' '//TRIM(IfW_TSFFWind_Ver%Ver)
       WRITE(InitData%SumFileUnit,'(A)',        IOSTAT=TmpErrStat)    TRIM(TmpErrMsg)
-      WRITE(InitData%SumFileUnit,'(A)',        IOSTAT=TmpErrStat)    '     FileName:                    '//TRIM(ParamData%WindFileName)
+      WRITE(InitData%SumFileUnit,'(A)',        IOSTAT=TmpErrStat)    '     FileName:                    '//TRIM(InitData%WindFileName)
       WRITE(InitData%SumFileUnit,'(A34,I3)',   IOSTAT=TmpErrStat)    '     Binary file format id:       ',ParamData%WindFileFormat
       WRITE(InitData%SumFileUnit,'(A34,G12.4)',IOSTAT=TmpErrStat)    '     Reference height (m):        ',ParamData%RefHt
       WRITE(InitData%SumFileUnit,'(A34,G12.4)',IOSTAT=TmpErrStat)    '     Timestep (s):                ',ParamData%FFDTime
@@ -608,7 +590,7 @@ END SUBROUTINE IfW_TSFFWind_Init
 !! day. For now, it merely needs to be functional. It can be fixed up and made all pretty later.
 !!
 !!   16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
-SUBROUTINE IfW_TSFFWind_CalcOutput(Time, PositionXYZ, ParamData,  OutData, MiscVars, ErrStat, ErrMsg)
+SUBROUTINE IfW_TSFFWind_CalcOutput(Time, PositionXYZ, ParamData,  Velocity, DiskVel, MiscVars, ErrStat, ErrMsg)
 
    IMPLICIT                                                 NONE
 
@@ -618,9 +600,10 @@ SUBROUTINE IfW_TSFFWind_CalcOutput(Time, PositionXYZ, ParamData,  OutData, MiscV
 
       ! Passed Variables
    REAL(DbKi),                               INTENT(IN   )  :: Time              !< time from the start of the simulation
-   REAL(ReKi), ALLOCATABLE,                  INTENT(IN   )  :: PositionXYZ(:,:)  !< Array of XYZ coordinates, 3xN
+   REAL(ReKi),                               INTENT(IN   )  :: PositionXYZ(:,:)  !< Array of XYZ coordinates, 3xN
    TYPE(IfW_TSFFWind_ParameterType),         INTENT(IN   )  :: ParamData         !< Parameters
-   TYPE(IfW_TSFFWind_OutputType),            INTENT(  OUT)  :: OutData           !< Output at Time
+   REAL(ReKi),                               INTENT(INOUT)  :: Velocity(:,:)     !< Velocity output at Time    (Set to INOUT so that array does not get deallocated)
+   REAL(ReKi),                               INTENT(  OUT)  :: DiskVel(3)        !< HACK for AD14: disk velocity output at Time
    TYPE(IfW_TSFFWind_MiscVarType),           INTENT(INOUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
       ! Error handling
@@ -645,8 +628,6 @@ SUBROUTINE IfW_TSFFWind_CalcOutput(Time, PositionXYZ, ParamData,  OutData, MiscV
 
    ErrStat     = ErrID_None
    ErrMsg      = ''
-   TmpErrStat  = ErrID_None
-   TmpErrMsg   = ""
 
       !-------------------------------------------------------------------------------------------------
       ! Initialize some things
@@ -657,23 +638,12 @@ SUBROUTINE IfW_TSFFWind_CalcOutput(Time, PositionXYZ, ParamData,  OutData, MiscV
       ! This is just in case we only have a single point, the SIZE command returns the correct number of points.
    NumPoints   =  SIZE(PositionXYZ,2)
 
-      ! Allocate Velocity output array
-   IF ( .NOT. ALLOCATED(OutData%Velocity)) THEN
-      CALL AllocAry( OutData%Velocity, 3, NumPoints, "Velocity matrix at timestep", TmpErrStat, TmpErrMsg )
-      CALL SetErrStat(TmpErrStat,"IfW_TSFFWind:CalcOutput -- Could not allocate the output velocity array.",   &
-         ErrStat,ErrMsg,RoutineName)
-      IF ( ErrStat >= AbortErrLev ) RETURN
-   ELSEIF ( SIZE(OutData%Velocity,DIM=2) /= NumPoints ) THEN
-      CALL SetErrStat( ErrID_Fatal," Programming error: Position and Velocity arrays are not sized the same.",  &
-         ErrStat, ErrMsg, RoutineName)
-      RETURN
-   ENDIF
 
       ! Step through all the positions and get the velocities
    DO PointNum = 1, NumPoints
 
          ! Calculate the velocity for the position
-      OutData%Velocity(:,PointNum) = FF_Interp(Time,PositionXYZ(:,PointNum),ParamData,MiscVars,TmpErrStat,TmpErrMsg)
+      Velocity(:,PointNum) = FF_Interp(Time,PositionXYZ(:,PointNum),ParamData,MiscVars,TmpErrStat,TmpErrMsg)
 
 
          ! Error handling
@@ -691,13 +661,13 @@ SUBROUTINE IfW_TSFFWind_CalcOutput(Time, PositionXYZ, ParamData,  OutData, MiscV
 
       !REMOVE THIS for AeroDyn 15
       ! Return the average disk velocity values needed by AeroDyn 14.  This is the WindInf_ADhack_diskVel routine.
-   OutData%DiskVel(1)   =  ParamData%MeanFFWS
-   OutData%DiskVel(2:3) =  0.0_ReKi
+   DiskVel(1)   =  ParamData%MeanFFWS
+   DiskVel(2:3) =  0.0_ReKi
 
 
    RETURN
 
-CONTAINS
+END SUBROUTINE IfW_TSFFWind_CalcOutput
    !+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
    !>    This function is used to interpolate into the full-field wind array or tower array if it has
    !!    been defined and is necessary for the given inputs.  It receives X, Y, Z and
@@ -716,14 +686,14 @@ CONTAINS
    !!    09/23/2009 - Modified by B. Jonkman to use arguments instead of modules to determine time and position.
    !!                 Height is now relative to the ground
    !!   16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
-   FUNCTION FF_Interp(Time, Position, ParamData, MiscVars, ErrStat, ErrMsg)
+   FUNCTION FF_Interp(t_in, Position, ParamData, MiscVars, ErrStat, ErrMsg)
    !----------------------------------------------------------------------------------------------------
 
       IMPLICIT                                              NONE
 
       CHARACTER(*),           PARAMETER                  :: RoutineName="FF_Interp"
 
-      REAL(DbKi),                         INTENT(IN   )  :: Time           !< time
+      REAL(DbKi),                         INTENT(IN   )  :: t_in           !< input time
       REAL(ReKi),                         INTENT(IN   )  :: Position(3)    !< takes the place of XGrnd, YGrnd, ZGrnd
       TYPE(IfW_TSFFWind_ParameterType),   INTENT(IN   )  :: ParamData      !< Parameters
       TYPE(IfW_TSFFWind_MiscVarType),     INTENT(INOUT)  :: MiscVars       !< Misc variables for optimization (not copied in glue code)
@@ -770,12 +740,12 @@ CONTAINS
       ! Find the bounding time slices.
       !-------------------------------------------------------------------------------------------------
 
-      ! Perform the time shift.  At time=0, a point half the grid width downstream (ParamData%FFYHWid) will index into the zero time slice.
+      ! Perform the time shift.  At t_in=0, a point half the grid width downstream (ParamData%FFYHWid) will index into the zero time slice.
       ! If we did not do this, any point downstream of the tower at the beginning of the run would index outside of the array.
       ! This all assumes the grid width is at least as large as the rotor.  If it isn't, then the interpolation will not work.
 
 
-      TimeShifted = TIME + ( ParamData%InitXPosition - Position(1) )*ParamData%InvMFFWS    ! in distance, X: InputInfo%Position(1) - ParamData%InitXPosition - TIME*ParamData%MeanFFWS
+      TimeShifted = t_in + ( ParamData%InitXPosition - Position(1) )*ParamData%InvMFFWS    ! in distance, X: InputInfo%Position(1) - ParamData%InitXPosition - t*ParamData%MeanFFWS
 
 
       IF ( ParamData%Periodic ) THEN ! translate TimeShifted to ( 0 <= TimeShifted < ParamData%TotalTime )
@@ -815,7 +785,7 @@ CONTAINS
                   ITLO = ITHI - 1
                ENDIF
             ELSE
-               ErrMsg   = ' Error: FF wind array was exhausted at '//TRIM( Num2LStr( REAL( TIME,   ReKi ) ) )// &
+               ErrMsg   = ' Error: FF wind array was exhausted at '//TRIM( Num2LStr( REAL( t_in,   ReKi ) ) )// &
                           ' seconds (trying to access data at '//TRIM( Num2LStr( REAL( TimeShifted, ReKi ) ) )//' seconds).'
                ErrStat  = ErrID_Fatal
                RETURN
@@ -997,7 +967,6 @@ CONTAINS
       RETURN
 
    END FUNCTION FF_Interp
-END SUBROUTINE IfW_TSFFWind_CalcOutput
 
 
 !====================================================================================================
@@ -1005,7 +974,7 @@ END SUBROUTINE IfW_TSFFWind_CalcOutput
 !!  closed in InflowWindMod.
 !!
 !!  16-Apr-2013 - A. Platt, NREL.  Converted to modular framework. Modified for NWTC_Library 2.0
-SUBROUTINE IfW_TSFFWind_End( PositionXYZ, ParamData, OutData, MiscVars, ErrStat, ErrMsg)
+SUBROUTINE IfW_TSFFWind_End( ParamData, MiscVars, ErrStat, ErrMsg)
 
    IMPLICIT                                                 NONE
 
@@ -1014,9 +983,7 @@ SUBROUTINE IfW_TSFFWind_End( PositionXYZ, ParamData, OutData, MiscVars, ErrStat,
 
 
       ! Passed Variables
-   REAL(ReKi),             ALLOCATABLE,   INTENT(INOUT)  :: PositionXYZ(:,:)  !< Coordinate position list
    TYPE(IfW_TSFFWind_ParameterType),      INTENT(INOUT)  :: ParamData         !< Parameters
-   TYPE(IfW_TSFFWind_OutputType),         INTENT(INOUT)  :: OutData           !< Output
    TYPE(IfW_TSFFWind_MiscVarType),        INTENT(INOUT)  :: MiscVars          !< Misc variables for optimization (not copied in glue code)
 
 
@@ -1036,11 +1003,6 @@ SUBROUTINE IfW_TSFFWind_End( PositionXYZ, ParamData, OutData, MiscVars, ErrStat,
    ErrStat  = ErrID_None
 
 
-      ! Destroy the PositionXYZ data
-
-   IF ( ALLOCATED(PositionXYZ) )    DEALLOCATE(PositionXYZ)
-
-
 
       ! Destroy parameter data
 
@@ -1053,11 +1015,6 @@ SUBROUTINE IfW_TSFFWind_End( PositionXYZ, ParamData, OutData, MiscVars, ErrStat,
    CALL IfW_TSFFWind_DestroyMisc(  MiscVars,   TmpErrStat, TmpErrMsg )
    CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName)
 
-
-      ! Destroy the output data
-
-   CALL IfW_TSFFWind_DestroyOutput(      OutData,       TmpErrStat, TmpErrMsg )
-   CALL SetErrStat( TmpErrStat, TmpErrMsg, ErrStat, ErrMsg, RoutineName)
 
 
 END SUBROUTINE IfW_TSFFWind_End
